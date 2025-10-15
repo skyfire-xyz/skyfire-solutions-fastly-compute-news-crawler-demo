@@ -1,10 +1,11 @@
 import { jwtDecode } from "jwt-decode";
 import { KVStore } from "fastly:kv-store";
-import {
-  jwtVerify,
-  createRemoteJWKSet,
-  errors as joseErrors,
-} from "jose";
+import * as jwt from 'jsonwebtoken';
+
+const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEN1pqyHAt02vpYLoiXSjZPvPjJwZV
+VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
+-----END PUBLIC KEY-----`
 
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
@@ -136,12 +137,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
     // };
 
 
-    const { payload } = await jwtVerify(skyfireToken, JWKS, {
-     issuer: JWT_ISSUER,
-     audience: JWT_AUDIENCE,
-     algorithms: [JWT_ALGORITHM],
-   });
-
+  const payload = await jwt.verify(token, PUBLIC_KEY);
 
    console.log("payload", JSON.stringify(payload));
 
