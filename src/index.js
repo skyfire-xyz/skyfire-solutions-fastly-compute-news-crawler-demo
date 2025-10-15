@@ -1,5 +1,10 @@
 import { jwtDecode } from "jwt-decode";
 import { KVStore } from "fastly:kv-store";
+import {
+  jwtVerify,
+  createRemoteJWKSet,
+  errors as joseErrors,
+} from "jose";
 
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
@@ -32,32 +37,32 @@ function isBotRequest(req) {
   return req.headers.get("x-isbot") === "true";
 }
 
-const getDecodedJWT = (token) => {
-  console.log("token", token);
-  console.log("isJWT(token)", isJWT(token));
-  if (isJWT(token)) {
-    const jwtHeader = jwtDecode(token, { header: true });
-    const jwtPayload = jwtDecode(token);
+// const getDecodedJWT = (token) => {
+//   console.log("token", token);
+//   console.log("isJWT(token)", isJWT(token));
+//   if (isJWT(token)) {
+//     const jwtHeader = jwtDecode(token, { header: true });
+//     const jwtPayload = jwtDecode(token);
 
-    const jwtDecoded = { header: jwtHeader, payload: jwtPayload };
-    console.log("jwtHeader", jwtHeader);
-    console.log("jwtPayload", JSON.stringify(jwtPayload));
-    console.log("jwtDecoded", jwtDecoded);
+//     const jwtDecoded = { header: jwtHeader, payload: jwtPayload };
+//     console.log("jwtHeader", jwtHeader);
+//     console.log("jwtPayload", JSON.stringify(jwtPayload));
+//     console.log("jwtDecoded", jwtDecoded);
 
-    return {
-      isValid: true,
-      jwtPayload,
-    };
-  } else {
-    console.log({ err }, "Error while verifying token: ");
+//     return {
+//       isValid: true,
+//       jwtPayload,
+//     };
+//   } else {
+//     console.log({ err }, "Error while verifying token: ");
 
-    return {
-      isValid: false,
-      errorMessage: "Something went wrong while verifying your JWT token",
-      errorStatusCode: 401,
-    };
-  }
-};
+//     return {
+//       isValid: false,
+//       errorMessage: "Something went wrong while verifying your JWT token",
+//       errorStatusCode: 401,
+//     };
+//   }
+// };
 
 const SKYFIRE_SELLER_API_KEY = "6c0217fa-b746-4db1-9ab1-292203d9e8af";
 
@@ -106,21 +111,69 @@ async function chargeToken(skyfireToken, amountToCharge = "0.0001") {
 // Check for the custom header
 async function verifySkyfirePayIdHeader(skyfireToken) {
   // Only decode token if request is from a bot
+
+ const JWT_ALGORITHM = "ES256";
+ const SKYFIRE_API_URL = "https://api-qa.skyfire.xyz";
+ const JWKS_URL = SKYFIRE_API_URL + "/.well-known/jwks.json";
+
+ console.log("JWKS_URL", JWKS_URL);
+
+ const JWT_ISSUER = "https://app-qa.skyfire.xyz";
+ const JWT_AUDIENCE = "ab73a4e6-11c2-40d7-a07f-c61e95ffed2c";
+ const JWT_SSI = "5e7f3359-9ec1-4078-bf45-401d079af1be";
+ const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+ console.log("JWKS",JWKS);
+
   try {
-    const { jwtPayload } = getDecodedJWT(skyfireToken);
-    await new KVStore("first_KV_batch_charging").put(
-      jwtPayload?.bid?.skyfireEmail,
-      Date.now()
-    );
-    return {
-      isValid: true,
-    };
-  } catch (err) {
-    return {
-      isValid: false,
-      errorMessage: "Something went wrong while verifying your JWT token",
-      errorStatusCode: 401,
-    };
+    // const { jwtPayload } = getDecodedJWT(skyfireToken);
+    // await new KVStore("first_KV_batch_charging").put(
+    //   jwtPayload?.bid?.skyfireEmail,
+    //   Date.now()
+    // );
+
+        // return {
+    //   isValid: true,
+    // };
+
+
+    const { payload } = await jwtVerify(skyfireToken, JWKS, {
+     issuer: JWT_ISSUER,
+     audience: JWT_AUDIENCE,
+     algorithms: [JWT_ALGORITHM],
+   });
+
+
+   console.log("payload", JSON.stringify(payload));
+
+    if (payload.ssi !== JWT_SSI) {
+     return {
+       isValid: false,
+       errorMessage: "Invalid SSI in token",
+       errorStatusCode: 401,
+     };
+   }
+   return;
+    } catch (err) {
+    // return {
+    //   isValid: false,
+    //   errorMessage: "Something went wrong while verifying your JWT token",
+    //   errorStatusCode: 401,
+    // };
+
+    console.log({ err }, "Error while verifying token: ");
+   if (err instanceof joseErrors.JOSEError) {
+     return {
+       isValid: false,
+       errorMessage: "Your JWT token is invalid",
+       errorStatusCode: 401,
+     };
+   }
+   return {
+     isValid: false,
+     errorMessage: "Something went wrong while verifying your JWT token",
+     errorStatusCode: 401,
+   };
+
   }
 }
 
