@@ -3,6 +3,7 @@
   "private": true,
   "dependencies": {
     "@fastly/js-compute": "^3.33.2",
+    "@upstash/redis": "^1.35.6",
     "jwt-decode": "^4.0.0"
   },
   "optionalDependencies": {

@@ -1,3 +1,4 @@
+import { Redis } from "@upstash/redis/fastly";
 import { jwtDecode } from "jwt-decode";
 import { KVStore } from "fastly:kv-store";
 
@@ -59,57 +60,62 @@ const getDecodedJWT = (token) => {
   }
 };
 
-const SKYFIRE_API_URL = "https://api-qa.skyfire.xyz";
 const SKYFIRE_SELLER_API_KEY = "6c0217fa-b746-4db1-9ab1-292203d9e8af";
 
-async function chargeToken(
-  skyfireToken,
-  amountToCharge = "0.0001"
- ) {
+async function chargeToken(skyfireToken, amountToCharge = "0.0001") {
   try {
-    const response = await fetch(`${SKYFIRE_API_URL}/api/v1/tokens/charge`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "skyfire-api-key": SKYFIRE_SELLER_API_KEY,
-      },
-      body: JSON.stringify({
-        token: skyfireToken,
-        chargeAmount: `${amountToCharge}`,
-      }),
+    const newReq = new Request(
+      "https://api-qa.skyfire.xyz/api/v1/tokens/charge",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "skyfire-api-key": SKYFIRE_SELLER_API_KEY,
+        },
+        body: JSON.stringify({
+          token: skyfireToken,
+          chargeAmount: `${amountToCharge}`,
+        }),
+      }
+    );
+
+    const response = await fetch(newReq, {
+      backend: "skyfire_be",
     });
 
-    const data = (await response.json());
+    console.log("response", response);
+    const data = await response.json();
 
     if (data.code === "PAYMENT_ERROR") {
       throw new Error(`Payment Error: ${data.code} ${data.message}`);
     }
 
-      console.log({
-        event: "token_charged",
-        msg: "💸 Successfully charged token",
-        data,
-      });
+    console.log({
+      event: "token_charged",
+      msg: "💸 Successfully charged token",
+      data,
+    });
 
     return data;
   } catch (err) {
-      console.log({
-        event: "token_charge_failed",
-        error: err,
-        msg: "💸 Error charging token",
-      });
+    console.log({
+      event: "token_charge_failed",
+      error: err,
+      msg: "💸 Error charging token",
+    });
     throw err;
   }
 }
 
 // Check for the custom header
 async function verifySkyfirePayIdHeader(skyfireToken) {
-  // Only verify token if request is from a bot
-
-  // decode token here
+  // Only decode token if request is from a bot
   try {
     const { jwtPayload } = getDecodedJWT(skyfireToken);
-    await new KVStore("example_store").put(jwtPayload?.bid?.skyfireEmail, Date.now());
+    await new KVStore("first_KV_batch_charging").put(
+      jwtPayload?.bid?.skyfireEmail,
+      Date.now()
+    );
     return {
       isValid: true,
     };
@@ -124,6 +130,15 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
 
 async function handleRequest(event) {
   const req = event.request;
+
+  const redis = new Redis({
+    url: "https://sure-seasnail-19324.upstash.io", //upstash url
+    token: "AUt8AAIncDI3Y2E3YmI0NzQyZDY0OWUxYTNiMzZkMzQ4NjVhYjNmNHAyMTkzMjQ", // upstash token
+    backend: "upstash",
+  });
+  const data = await redis.incr("count");
+  // return new Response("View Count:" + data, { status: 200 });
+  console.log("View Count:" + data);
 
   console.log("isBotRequest(req)", isBotRequest(req));
 
@@ -157,7 +172,7 @@ async function handleRequest(event) {
 
     skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
       req.headers.get("skyfire-pay-id")
-    ); // if you have JWT verification
+    );
     console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
   }
 
@@ -172,16 +187,20 @@ async function handleRequest(event) {
       headers: new Headers(req.headers),
     });
 
-    let {amountCharged, remainingBalance} = await chargeToken(req.headers.get("skyfire-pay-id"));
+    let { amountCharged, remainingBalance } = await chargeToken(
+      req.headers.get("skyfire-pay-id")
+    );
     console.log("amountCharged from token - ", amountCharged);
     console.log("remainingBalance from token - ", remainingBalance);
 
     // Send request to backend (configured as 'origin_0')
     const beresp = await fetch(newReq, {
-      backend: "http_me",
+      backend: "real_estate_protected_website",
     });
 
-    const bid = await new KVStore("example_store").get("supreet@skyfire.xyz");
+    const bid = await new KVStore("first_KV_batch_charging").get(
+      "supreet@skyfire.xyz"
+    );
     console.log("buyer identity", await bid.text());
 
     const respBody = await beresp.arrayBuffer();

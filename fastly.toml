@@ -20,6 +20,9 @@ service_id = "VQ14GHWSSaNF0LlEVe1OSC"
       override_host = "api-qa.skyfire.xyz"
       url = "https://api-qa.skyfire.xyz"
 
+    [local_server.backends.upstash]
+      url = "https://sure-seasnail-19324.upstash.io"
+
   [local_server.kv_stores]
     first_KV_batch_charging = { file = './kv_data_example/example_kv_store.json', format = 'json' }
 
