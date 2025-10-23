@@ -2,6 +2,11 @@ import { jwtDecode } from "jwt-decode";
 // import { UsageSessionManager } from "./services/usage-session-manager";
 import { Redis } from "@upstash/redis/fastly";
 
+    const batchAmountThreshold = 0.005; //Number(process.env.BATCH_AMOUNT_THRESHOLD) ||
+  const sessionDuration = 300; //Number(process.env.REDIS_SESSION_EXPIRY) ||
+  const maximumRequestCount = 10; // Number(process.env.OVERRIDE_MAXIMUM_REQUEST_COUNT);
+    const perRequestAmount = 0.001; //Number(jwtPayload.spr) || 0;
+
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
 let skyfirePayIdVerificationRes = {
@@ -129,71 +134,71 @@ async function trackSessionExpiry(sessionKey, expiryTime, redis) {
   }
 }
 
-class UsageSessionManager {
-  redisKey;
-  perRequestAmount;
-  maximumRequestCount;
-  sessionDuration;
-  batchAmountThreshold;
-  redis;
+// class UsageSessionManager {
+//   redisKey;
+//   perRequestAmount;
+//   maximumRequestCount;
+//   sessionDuration;
+//   batchAmountThreshold;
+//   redis;
 
-  constructor(
-    redisKey,
-    perRequestAmount,
-    maximumRequestCount,
-    sessionDuration,
-    batchAmountThreshold, 
-    redis
-  ) {
-    this.redisKey = redisKey;
-    this.perRequestAmount = perRequestAmount;
-    this.maximumRequestCount = maximumRequestCount;
-    this.sessionDuration = sessionDuration;
-    this.batchAmountThreshold = batchAmountThreshold;
-    this.redis = redis;
-  }
+//   constructor(
+//     redisKey,
+//     perRequestAmount,
+//     maximumRequestCount,
+//     sessionDuration,
+//     batchAmountThreshold, 
+//     redis
+//   ) {
+//     this.redisKey = redisKey;
+//     this.perRequestAmount = perRequestAmount;
+//     this.maximumRequestCount = maximumRequestCount;
+//     this.sessionDuration = sessionDuration;
+//     this.batchAmountThreshold = batchAmountThreshold;
+//     this.redis = redis;
+//   }
 
-  parseFloatSafe(value) {
+  function parseFloatSafe(value) {
     return Math.round(value * 1000000) / 1000000;
   }
 
-  async createNewSession(jwtToken) {
-    const multi = this.redis.pipeline();
-    multi.hset(this.redisKey, { jwtToken: jwtToken });
-    multi.hset(this.redisKey, { count: "0" });
-    multi.hset(this.redisKey, { accumulated: "0" });
-    multi.hset(this.redisKey, { lastRequest: Date.now().toString() });
-    multi.hset(this.redisKey, { remainingBalance: "0" });
-    multi.expire(this.redisKey, this.sessionDuration);
+  async function createNewSession(jwtToken, redisKey, redis) {
+    const multi = redis.pipeline();
+    multi.hset(redisKey, { jwtToken: jwtToken });
+    multi.hset(redisKey, { count: "0" });
+    multi.hset(redisKey, { accumulated: "0" });
+    multi.hset(redisKey, { lastRequest: Date.now().toString() });
+    multi.hset(redisKey, { remainingBalance: "0" });
+    multi.expire(redisKey, sessionDuration);
 
     await multi.exec();
 
     // Track session expiry
-    const expiryTime = Date.now() + this.sessionDuration * 1000;
-    await trackSessionExpiry(this.redisKey, expiryTime, this.redis);
+    const expiryTime = Date.now() + sessionDuration * 1000;
+    await trackSessionExpiry(redisKey, expiryTime, redis);
   }
 
   /**
    * Increments usage counters: count, accumulated amount, and sets last activity.
    * Returns the updated count, accumulated amount, and whether this is a new session.
    */
-  async updateUsage(
-    { skipAccumulation = false } // : { skipAccumulation? } = {} // : Promise<{ //   count?: number; //   accumulated?: number;
+  async function updateUsage(
+    { skipAccumulation = false }, redisKey, redis // : { skipAccumulation? } = {} // : Promise<{ //   count?: number; //   accumulated?: number;
   ) //   isNewSession: boolean;
   // }>
   {
     // Check if this is a new session before incrementing
-    const sessionExists = await this.sessionExists();
+    const sessionExists = await sessionExistsChecker(redisKey, redis);
 
-    const multi = this.redis.pipeline();
-    multi.hincrby(this.redisKey, "count", 1);
+    const multi = redis.pipeline();
+    multi.hincrby(redisKey, "count", 1);
 
     if (!skipAccumulation) {
-      multi.hincrbyfloat(this.redisKey, "accumulated", this.perRequestAmount);
+      multi.hincrbyfloat(redisKey, "accumulated", perRequestAmount);
     }
 
-    multi.hset(this.redisKey, { lastRequest: Date.now() });
-    multi.expire(this.redisKey, this.sessionDuration);
+    multi.hset(redisKey, { lastRequest: Date.now() });
+    multi.expire(redisKey, sessionDuration);
 
     const execResult = await multi.exec();
 
@@ -216,13 +221,13 @@ class UsageSessionManager {
         }
       } else {
         // If skipping accumulation, get the current accumulated amount
-        accumulated = await this.getAccumulatedAmount();
+        accumulated = await getAccumulatedAmount(redisKey, redis);
       }
     }
 
     // Update expiry tracking
-    const expiryTime = Date.now() + this.sessionDuration * 1000;
-    await trackSessionExpiry(this.redisKey, expiryTime, this.redis);
+    const expiryTime = Date.now() + sessionDuration * 1000;
+    await trackSessionExpiry(redisKey, expiryTime, redis);
 
     return { count, accumulated, isNewSession: !sessionExists };
   }
@@ -230,30 +235,30 @@ class UsageSessionManager {
   /**
    * Updates the remaining balance in Redis.
    */
-  async updateRemainingBalance(newBalance) {
-    await this.redis.hset(this.redisKey, { remainingBalance: newBalance });
+  async function updateRemainingBalance(newBalance, redisKey, redis) {
+    await redis.hset(redisKey, { remainingBalance: newBalance });
   }
 
   /**
    * Resets the accumulated amount and count in Redis after a batch charge.
    */
-  async resetAccumulated() {
-    const multi = this.redis.pipeline();
-    multi.hset(this.redisKey, { accumulated: "0" });
+  async function resetAccumulated(redisKey, redis) {
+    const multi = redis.pipeline();
+    multi.hset(redisKey, { accumulated: "0" });
     await multi.exec();
   }
 
   /**
    * Gets the current remaining balance from Redis.
    */
-  async getRemainingBalance() {
+  async function getRemainingBalance(redisKey, redis) {
     try {
-      const balance = await this.redis.hget(this.redisKey, "remainingBalance");
+      const balance = await redis.hget(redisKey, "remainingBalance");
       return balance !== null ? Number(balance) : null;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error getting remaining balance:`
+        `[Session: ${redisKey}] Error getting remaining balance:`
       );
       return null;
     }
@@ -262,14 +267,14 @@ class UsageSessionManager {
   /**
    * Gets the current request count from Redis.
    */
-  async getRequestCount() {
+  async function getRequestCount(redisKey, redis) {
     try {
-      const count = await this.redis.hget(this.redisKey, "count");
+      const count = await redis.hget(redisKey, "count");
       return count !== null ? Number(count) : 0;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error getting request count:`
+        `[Session: ${redisKey}] Error getting request count:`
       );
       return 0;
     }
@@ -278,14 +283,14 @@ class UsageSessionManager {
   /**
    * Gets the current accumulated amount from Redis.
    */
-  async getAccumulatedAmount() {
+  async function getAccumulatedAmount(redisKey, redis) {
     try {
-      const accumulated = await this.redis.hget(this.redisKey, "accumulated");
+      const accumulated = await redis.hget(redisKey, "accumulated");
       return accumulated !== null ? Number(accumulated) : 0;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error getting accumulated amount:`
+        `[Session: ${redisKey}] Error getting accumulated amount:`
       );
       return 0;
     }
@@ -293,14 +298,14 @@ class UsageSessionManager {
   /**
    * Checks if the session exists in Redis.
    */
-  async sessionExists() {
+  async function sessionExistsChecker(redisKey, redis) {
     try {
-      const exists = await this.redis.exists(this.redisKey);
+      const exists = await redis.exists(redisKey);
       return exists === 1;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error checking if session exists:`
+        `[Session: ${redisKey}] Error checking if session exists:`
       );
       return false;
     }
@@ -309,14 +314,14 @@ class UsageSessionManager {
   /**
    * Checks if the request count has reached the maximum allowed requests.
    */
-  async hasReachedMaximumRequestCount() {
+  async function hasReachedMaximumRequestCountChecker(redisKey, redis) {
     try {
-      const count = await this.getRequestCount();
-      return count >= this.maximumRequestCount;
+      const count = await getRequestCount(redisKey, redis);
+      return count >= maximumRequestCount;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error checking maximum request count:`
+        `[Session: ${redisKey}] Error checking maximum request count:`
       );
       return false;
     }
@@ -325,15 +330,15 @@ class UsageSessionManager {
   /**
    * Checks if the remaining balance is insufficient for the next request.
    */
-  async hasReachedRemainingBalance() {
-    const balance = await this.getRemainingBalance();
-    const accumulated = await this.getAccumulatedAmount();
-    const requiredAmount = this.parseFloatSafe(
-      this.perRequestAmount + accumulated
+  async function hasReachedRemainingBalanceChecker(redisKey, redis) {
+    const balance = await getRemainingBalance(redisKey, redis);
+    const accumulated = await getAccumulatedAmount(redisKey, redis);
+    const requiredAmount = parseFloatSafe(
+      perRequestAmount + accumulated
     );
 
     console.error(
-      `[Session: ${this.redisKey}] hasReachedRemainingBalance: balance=${balance}, accumulated=${accumulated}, perRequestAmount=${this.perRequestAmount}, batchAmountThreshold=${this.batchAmountThreshold}`
+      `[Session: ${redisKey}] hasReachedRemainingBalance: balance=${balance}, accumulated=${accumulated}, perRequestAmount=${perRequestAmount}, batchAmountThreshold=${batchAmountThreshold}`
     );
 
     return balance === null || balance === 0 || balance < requiredAmount;
@@ -342,14 +347,14 @@ class UsageSessionManager {
   /**
    * Checks if the accumulated amount has reached the batch threshold.
    */
-  async hasReachedBatchThreshold() {
+  async function hasReachedBatchThreshold(redisKey, redis) {
     try {
-      const accumulated = await this.getAccumulatedAmount();
-      return accumulated >= this.batchAmountThreshold;
+      const accumulated = await getAccumulatedAmount(redisKey, redis);
+      return accumulated >= batchAmountThreshold;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error checking batch threshold:`
+        `[Session: ${redisKey}] Error checking batch threshold:`
       );
       return false;
     }
@@ -358,18 +363,18 @@ class UsageSessionManager {
   /**
    * Gets the actual expiration timestamp (Unix timestamp in milliseconds)
    */
-  async getSessionExpirationTimestamp() {
+  async function getSessionExpirationTimestamp(redisKey, redis) {
     try {
-      const lastRequest = await this.redis.hget(this.redisKey, "lastRequest");
+      const lastRequest = await redis.hget(redisKey, "lastRequest");
       if (!lastRequest) return null;
 
       const lastRequestTime = Number(lastRequest);
-      const expirationTime = lastRequestTime + this.sessionDuration * 1000;
+      const expirationTime = lastRequestTime + sessionDuration * 1000;
       return expirationTime;
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error getting session expiration timestamp:`
+        `[Session: ${redisKey}] Error getting session expiration timestamp:`
       );
       return null;
     }
@@ -378,12 +383,12 @@ class UsageSessionManager {
   /**
    * Gets the stored JWT token from the session
    */
-  async getJWT() {
+  async function getJWT(redisKey, redis) {
     try {
-      const jwt = await this.redis.hget(this.redisKey, "jwtToken");
+      const jwt = await redis.hget(redisKey, "jwtToken");
       return jwt;
     } catch (err) {
-      console.error({ err }, `[Session: ${this.redisKey}] Error getting JWT:`);
+      console.error({ err }, `[Session: ${redisKey}] Error getting JWT:`);
       return null;
     }
   }
@@ -391,14 +396,14 @@ class UsageSessionManager {
   /**
    * Stores session data in a stream before expiration for later retrieval
    */
-  async storeSessionDataForExpiration() {
+  async function storeSessionDataForExpiration(redisKey, redis) {
     try {
-      const sessionData = await this.redis.hgetall(this.redisKey);
+      const sessionData = await redis.hgetall(redisKey);
       if (sessionData && Object.keys(sessionData).length > 0) {
         // Store in a hash that doesn't expire (simpler than streams)
-        const dataKey = `session_data:${this.redisKey}`;
-        await this.redis.hset(dataKey, {
-          session_id: this.redisKey,
+        const dataKey = `session_data:${redisKey}`;
+        await redis.hset(dataKey, {
+          session_id: redisKey,
           count: sessionData.count || "0",
           accumulated: sessionData.accumulated || "0",
           jwtToken: sessionData.jwtToken || "",
@@ -407,12 +412,12 @@ class UsageSessionManager {
         });
 
         // Set expiration for the data key (cleanup after 1 hour)
-        await this.redis.expire(dataKey, 3600);
+        await redis.expire(dataKey, 3600);
       }
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error storing session data for expiration:`
+        `[Session: ${redisKey}] Error storing session data for expiration:`
       );
     }
   }
@@ -420,19 +425,18 @@ class UsageSessionManager {
   /**
    * Manually delete session and remove from tracking
    */
-  async deleteSession() {
+  async function deleteSession(redisKey, redis) {
     try {
-      await this.redis.del(this.redisKey);
-      await removeSessionFromTracking(this.redisKey);
-      console.log(`[Session: ${this.redisKey}] Manually deleted session`);
+      await redis.del(redisKey);
+      await removeSessionFromTracking(redisKey);
+      console.log(`[Session: ${redisKey}] Manually deleted session`);
     } catch (err) {
       console.error(
         { err },
-        `[Session: ${this.redisKey}] Error deleting session:`
+        `[Session: ${redisKey}] Error deleting session:`
       );
     }
   }
-}
 
 async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
   const jwtPayload = decodedSkyfireToken.jwtPayload;
@@ -457,25 +461,25 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
     BatchAmountThreshold: batchAmountThreshold,
   });
 
-  // Initialize the usage session manager
-  const manager = new UsageSessionManager(
-    redisKey,
-    perRequestAmount,
-    maximumRequestCount,
-    sessionDurationSeconds,
-    batchAmountThreshold,
-    redis
-  );
+  // // Initialize the usage session manager
+  // const manager = new UsageSessionManager(
+  //   redisKey,
+  //   perRequestAmount,
+  //   maximumRequestCount,
+  //   sessionDurationSeconds,
+  //   batchAmountThreshold,
+  //   redis
+  // );
 
   // If the session is new, charge the token first and get the remaining balance
   let initialCharge = false;
   let totalChargedAmount = 0;
-  const sessionExists = await manager.sessionExists();
+  const sessionExists = await sessionExistsChecker(redisKey, redis);
   if (!sessionExists) {
     console.log(`🆕 New session created for token: ${jwtPayload.jti}`);
 
     // Create a new session
-    await manager.createNewSession(skyfireToken);
+    await createNewSession(skyfireToken, redisKey, redis);
 
     try {
       const { remainingBalance } = await chargeToken(
@@ -488,12 +492,11 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
       totalChargedAmount = perRequestAmount;
 
       // Reset accumulated amount
-      await manager.resetAccumulated();
-      await manager.updateRemainingBalance(remainingBalance);
+      await resetAccumulated(redisKey, redis);
+      await updateRemainingBalance(remainingBalance, redisKey, redis);
 
-      await logSession(
+      await logSession(redisKey, redis,
         jwtPayload,
-        manager,
         `Initial charge: charged ${perRequestAmount}`
       );
     } catch (error) {
@@ -524,24 +527,23 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
   // 0. Ignore if the session is new and already charged.
   // 1. Is the  remaining balance is insufficient for the next request
   // 2. Is the request count has reached the maximum allowed requests
-  const hasReachedRemainingBalance = await manager.hasReachedRemainingBalance();
+  const hasReachedRemainingBalance = await hasReachedRemainingBalanceChecker(redisKey, redis);
   const hasReachedMaximumRequestCount =
-    await manager.hasReachedMaximumRequestCount();
+    await hasReachedMaximumRequestCountChecker(redisKey, redis);
 
   if (
     sessionExists &&
     (hasReachedRemainingBalance || hasReachedMaximumRequestCount)
   ) {
-    await logSession(
+    await logSession(redisKey, redis,
       jwtPayload,
-      manager,
       `[Threshold reached] Error:402: hasReachedRemainingBalance=${hasReachedRemainingBalance} hasReachedMaximumRequestCount=${hasReachedMaximumRequestCount}`,
       "warn"
     );
 
     // Check if user owes any accumulated amount
     // Note: Leave this logic here to just make sure the user is charged for the accumulated amount.
-    const accumulated = await manager.getAccumulatedAmount();
+    const accumulated = await getAccumulatedAmount(redisKey, redis);
 
     // If there is an accumulated amount, charge the token before returning the response.
     if (accumulated > 0) {
@@ -553,8 +555,8 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
           jwtPayload.jti
         );
         // Reset accumulated amount
-        await manager.resetAccumulated();
-        await manager.updateRemainingBalance(remainingBalance);
+        await resetAccumulated(redisKey, redis);
+        await updateRemainingBalance(remainingBalance, redisKey, redis);
 
         totalChargedAmount = accumulated;
       } catch (error) {
@@ -584,7 +586,7 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
     // 402 Payment Required: token usage exceeded. Blocked from returning the response.
 
     const hasCharges = totalChargedAmount > 0;
-    let paymentHeaders = await makePaymentHeaders(manager, totalChargedAmount);
+    let paymentHeaders = await makePaymentHeaders(totalChargedAmount, redisKey, redis);
 
     console.log("paymentHeaders", paymentHeaders); // TODO: use paymentHeaders to add in headers
     // // Send request to backend (configured as 'origin_0')
@@ -653,13 +655,13 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
   }
 
   // Update the usage session count, accumulated amount, and remaining balance.
-  await manager.updateUsage({ skipAccumulation: initialCharge }); // Skip accumulation if it's already charged for the initial request.
+  await updateUsage({ skipAccumulation: initialCharge }, redisKey, redis); // Skip accumulation if it's already charged for the initial request.
 
-  const hasReachedBatch = await manager.hasReachedBatchThreshold();
+  const hasReachedBatch = await hasReachedBatchThreshold(redisKey, redis);
   if (hasReachedBatch) {
     // Handle batch threshold reached logic
     // e.g., charge the accumulated amount
-    const accumulated = await manager.getAccumulatedAmount();
+    const accumulated = await getAccumulatedAmount(redisKey, redis);
     if (accumulated && accumulated > 0) {
       try {
         // Charge accumulated amount
@@ -669,8 +671,8 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
           jwtPayload.jti
         );
         // Reset accumulated amount
-        await manager.resetAccumulated();
-        await manager.updateRemainingBalance(remainingBalance);
+        await resetAccumulated(redisKey, redis);
+        await updateRemainingBalance(remainingBalance, redisKey, redis);
 
         totalChargedAmount = accumulated;
       } catch (error) {
@@ -697,21 +699,21 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
       }
     }
 
-    await logSession(
+    await logSession(redisKey, redis,
       jwtPayload,
-      manager,
+      
       `Threashold reached: Batch amount threshold reached. We charged the accumulated amount.`
     );
   }
 
   // Store session data for expiration handling
-  await manager.storeSessionDataForExpiration();
+  await storeSessionDataForExpiration(redisKey, redis);
 
   // Add payment info to response headers
-  let paymentHeaders = await makePaymentHeaders(manager, totalChargedAmount);
+  let paymentHeaders = await makePaymentHeaders(totalChargedAmount, redisKey, redis);
   console.log("paymentHeaders", paymentHeaders); // TODO: use paymentHeaders to add in headers
 
-  await logSession(jwtPayload, manager);
+  await logSession(redisKey, redis, jwtPayload);
   return {
     isError: false,
     paymentHeaders,
@@ -721,24 +723,23 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
 /**
  * Creates payment headers for response
  */
-async function makePaymentHeaders(manager, chargedAmount) {
-  const [count, accumulated, remainingBalance, sessionExpiry] =
-    await Promise.all([
-      manager.getRequestCount(),
-      manager.getAccumulatedAmount(),
-      manager.getRemainingBalance(),
-      manager.getSessionExpirationTimestamp(),
-    ]);
+async function makePaymentHeaders(chargedAmount, redisKey, redis) {
+
+    const count = await getRequestCount(redisKey, redis);
+    const accumulated = await getAccumulatedAmount(redisKey, redis);
+    const remainingBalance = await getRemainingBalance(redisKey, redis);
+    const sessionExpiry =  await getSessionExpirationTimestamp(redisKey, redis);
+
 
   let paymentHeaders = {
     "X-Payment-Charged": chargedAmount?.toString() || "0",
     "X-Payment-Session-Count": count.toString(),
     "X-Payment-Session-Accumulated-Amount": accumulated.toString(),
     "X-Payment-Session-Remaining-Balance": remainingBalance?.toString() || "0",
-    "X-Payment-Session-Token-MNR": manager.maximumRequestCount.toString(),
+    "X-Payment-Session-Token-MNR": maximumRequestCount.toString(),
     "X-Payment-Session-Expires-At": sessionExpiry?.toString() || "0",
     "X-Payment-Session-Batch-Threshold":
-      manager.batchAmountThreshold.toString(),
+      batchAmountThreshold.toString(),
   };
   // res.setHeader("X-Payment-Charged", chargedAmount?.toString() || "0");
   // res.setHeader("X-Payment-Session-Count", count.toString());
@@ -762,12 +763,13 @@ async function makePaymentHeaders(manager, chargedAmount) {
   return paymentHeaders;
 }
 
-async function logSession(jwtPayload, manager, additionalInfo, level = "info") {
-  const [count, accumulated, remainingBalance] = await Promise.all([
-    manager.getRequestCount(),
-    manager.getAccumulatedAmount(),
-    manager.getRemainingBalance(),
-  ]);
+async function logSession(redisKey, redis,jwtPayload, additionalInfo, level = "info") {
+
+
+   const count = await getRequestCount(redisKey, redis);
+    const accumulated = await getAccumulatedAmount(redisKey, redis);
+    const remainingBalance = await getRemainingBalance(redisKey, redis);
+   
 
   const logData = {
     msg: "Session Summary",
