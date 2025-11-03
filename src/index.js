@@ -911,38 +911,12 @@ VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
 async function verifySkyfirePayIdHeader(skyfireToken, redis) {
   // Only decode token if request is from a bot
   try {
-    console.log("in verifyPayIdHeader");
-    console.log(
-      "jws.decode(skyfireToken, ES256, jwtSecret)",
-      jws.decode(skyfireToken, "ES256", jwtSecret)
-    );
-    console.log(
-      "jws.decode(skyfireToken, ES256, jwtSecret).payload",
-      jws.decode(skyfireToken, "ES256", jwtSecret).payload
-    );
-    console.log(
-      "JSON.parse(jws.decode(skyfireToken, ES256, jwtSecret).payload)",
-      JSON.parse(jws.decode(skyfireToken, "ES256", jwtSecret).payload)
-    );
-    console.log(
-      "jws.decode(skyfireToken, ES256, jwtSecret).header",
-      jws.decode(skyfireToken, "ES256", jwtSecret).header
-    );
-    console.log(
-      "typeof(jws.decode(skyfireToken, ES256, jwtSecret).header)",
-      typeof jws.decode(skyfireToken, "ES256", jwtSecret).header
-    );
-
-    console.log("jws.verify)", jws.verify(skyfireToken, "ES256", jwtSecret));
-
     if (jws.verify(skyfireToken, "ES256", jwtSecret)) {
       const jwtPayload = JSON.parse(
         jws.decode(skyfireToken, "ES256", jwtSecret).payload
       );
-      console.log("jwtPayload1", jwtPayload);
 
       const jwtHeader = jws.decode(skyfireToken, "ES256", jwtSecret).header;
-      console.log("jwtHeader1", jwtHeader);
 
       const data = await redis.hset(skyfireToken, {
         skyfireEmail: jwtPayload?.bid?.skyfireEmail,
