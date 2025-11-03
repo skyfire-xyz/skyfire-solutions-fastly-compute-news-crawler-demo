@@ -1,6 +1,7 @@
 import { jwtDecode } from "jwt-decode";
 // import { UsageSessionManager } from "./services/usage-session-manager";
 import { Redis } from "@upstash/redis/fastly";
+import * as jws from "jws";
 
 const batchAmountThreshold = 0.005; //Number(process.env.BATCH_AMOUNT_THRESHOLD) ||
 const sessionDuration = 300; //Number(process.env.REDIS_SESSION_EXPIRY) ||
@@ -437,12 +438,12 @@ async function deleteSession(redisKey, redis) {
 
 async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
   const skyfireSession = await redis.hgetall(skyfireToken); // replace this with hgetall
-  console.log("not skyfireSession.accumulated", !skyfireSession.accumulated)
-  console.log("skyfireSession.accumulated", skyfireSession.accumulated)
+  console.log("not skyfireSession.accumulated", !skyfireSession.accumulated);
+  console.log("skyfireSession.accumulated", skyfireSession.accumulated);
   if (!("accumulated" in skyfireSession)) {
-    console.log("in if")
+    console.log("in if");
     try {
-      console.log("in if try")
+      console.log("in if try");
       const { remainingBalance } = await chargeToken(
         skyfireToken,
         perRequestAmount
@@ -476,7 +477,7 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
       //   `Initial charge: charged ${perRequestAmount}`
       // );
     } catch (error) {
-      console.log("in if catch")
+      console.log("in if catch");
       console.error(
         `[Session: ${jwtPayload.jti}] Error charging token:`,
         error
@@ -495,13 +496,13 @@ async function usageTrack(skyfireToken, decodedSkyfireToken, redis) {
     }
   } else {
     // if accumulated+pertokenCharge is >= remainingBalance
-    console.log("in else")
+    console.log("in else");
     if (
       parseFloatSafe(Number(skyfireSession.accumulated) + perRequestAmount) >
       Number(skyfireSession.remainingBalance)
     ) {
       // charge accumulated amount
-console.log("in else if")
+      console.log("in else if");
       const { remainingBalance } = await chargeToken(
         skyfireToken,
         skyfireSession.accumulated
@@ -531,16 +532,19 @@ console.log("in else if")
     } else {
       // else
       // update accumulated = accumulated + perTokenCharge
-      console.log("in else else")
+      console.log("in else else");
       await redis.hset(skyfireToken, {
-        accumulated: parseFloatSafe(Number(skyfireSession.accumulated) + perRequestAmount),
+        accumulated: parseFloatSafe(
+          Number(skyfireSession.accumulated) + perRequestAmount
+        ),
       });
       // return success with headers x-accumulated and x-remaining
       return {
         isError: false,
         paymentHeaders: {
-          "X-Payment-Session-Accumulated-Amount":
-            parseFloatSafe(Number(skyfireSession.accumulated) + perRequestAmount),
+          "X-Payment-Session-Accumulated-Amount": parseFloatSafe(
+            Number(skyfireSession.accumulated) + perRequestAmount
+          ),
           "X-Payment-Session-Remaining-Balance":
             skyfireSession.remainingBalance || "0",
         },
@@ -899,17 +903,62 @@ async function logSession(
   }
 }
 
+const jwtSecret = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEN1pqyHAt02vpYLoiXSjZPvPjJwZV
+VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
+-----END PUBLIC KEY-----`;
 // Check for the custom header
 async function verifySkyfirePayIdHeader(skyfireToken, redis) {
   // Only decode token if request is from a bot
   try {
-    const { jwtPayload } = getDecodedJWT(skyfireToken);
-    const data = await redis.hset(skyfireToken, {
-      skyfireEmail: jwtPayload?.bid?.skyfireEmail,
-    });
-    return {
-      isValid: true,
-    };
+    console.log("in verifyPayIdHeader");
+    console.log(
+      "jws.decode(skyfireToken, ES256, jwtSecret)",
+      jws.decode(skyfireToken, "ES256", jwtSecret)
+    );
+    console.log(
+      "jws.decode(skyfireToken, ES256, jwtSecret).payload",
+      jws.decode(skyfireToken, "ES256", jwtSecret).payload
+    );
+    console.log(
+      "JSON.parse(jws.decode(skyfireToken, ES256, jwtSecret).payload)",
+      JSON.parse(jws.decode(skyfireToken, "ES256", jwtSecret).payload)
+    );
+    console.log(
+      "jws.decode(skyfireToken, ES256, jwtSecret).header",
+      jws.decode(skyfireToken, "ES256", jwtSecret).header
+    );
+    console.log(
+      "typeof(jws.decode(skyfireToken, ES256, jwtSecret).header)",
+      typeof jws.decode(skyfireToken, "ES256", jwtSecret).header
+    );
+
+    console.log("jws.verify)", jws.verify(skyfireToken, "ES256", jwtSecret));
+
+    if (jws.verify(skyfireToken, "ES256", jwtSecret)) {
+      const jwtPayload = JSON.parse(
+        jws.decode(skyfireToken, "ES256", jwtSecret).payload
+      );
+      console.log("jwtPayload1", jwtPayload);
+
+      const jwtHeader = jws.decode(skyfireToken, "ES256", jwtSecret).header;
+      console.log("jwtHeader1", jwtHeader);
+
+      const data = await redis.hset(skyfireToken, {
+        skyfireEmail: jwtPayload?.bid?.skyfireEmail,
+      });
+      console.log("data in redis", data);
+      return {
+        isValid: true,
+      };
+    } else {
+      return {
+        isValid: false,
+        errorMessage: "Something went wrong while verifying your JWT token",
+        errorStatusCode: 401,
+      };
+    }
+    // const { jwtPayload } = getDecodedJWT(skyfireToken);
   } catch (err) {
     return {
       isValid: false,
