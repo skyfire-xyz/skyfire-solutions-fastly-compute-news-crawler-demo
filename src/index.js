@@ -122,7 +122,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
  const JWT_ISSUER = "https://app-qa.skyfire.xyz";
  const JWT_AUDIENCE = "ab73a4e6-11c2-40d7-a07f-c61e95ffed2c";
  const JWT_SSI = "5e7f3359-9ec1-4078-bf45-401d079af1be";
- const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+//  const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
  console.log("JWKS",JWKS);
 
   try {
@@ -137,17 +137,17 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
     // };
 
 
-  const payload = await jwt.verify(token, PUBLIC_KEY);
+  const payload = jwt.verify(token, PUBLIC_KEY);
 
    console.log("payload", JSON.stringify(payload));
 
-    if (payload.ssi !== JWT_SSI) {
-     return {
-       isValid: false,
-       errorMessage: "Invalid SSI in token",
-       errorStatusCode: 401,
-     };
-   }
+    // if (payload.ssi !== JWT_SSI) {
+    //  return {
+    //    isValid: false,
+    //    errorMessage: "Invalid SSI in token",
+    //    errorStatusCode: 401,
+    //  };
+  //  }
    return;
     } catch (err) {
     // return {
@@ -157,13 +157,13 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
     // };
 
     console.log({ err }, "Error while verifying token: ");
-   if (err instanceof joseErrors.JOSEError) {
-     return {
-       isValid: false,
-       errorMessage: "Your JWT token is invalid",
-       errorStatusCode: 401,
-     };
-   }
+  //  if (err instanceof joseErrors.JOSEError) {
+  //    return {
+  //      isValid: false,
+  //      errorMessage: "Your JWT token is invalid",
+  //      errorStatusCode: 401,
+  //    };
+  //  }
    return {
      isValid: false,
      errorMessage: "Something went wrong while verifying your JWT token",
@@ -179,65 +179,70 @@ async function handleRequest(event) {
   console.log("isBotRequest(req)", isBotRequest(req));
 
   if (isBotRequest(req)) {
-    console.log("req2", req);
-    console.log(
-      "req.headers.get(skyfire-pay-id)",
-      req.headers.get("skyfire-pay-id")
-    );
+    // console.log("req2", req);
+    // console.log(
+    //   "req.headers.get(skyfire-pay-id)",
+    //   req.headers.get("skyfire-pay-id")
+    // );
 
-    console.log(
-      "req.headers.get(skyfire-pay-id) === null",
-      req.headers.get("skyfire-pay-id") === null
-    );
+    // console.log(
+    //   "req.headers.get(skyfire-pay-id) === null",
+    //   req.headers.get("skyfire-pay-id") === null
+    // );
 
-    if (
-      req.headers.get("skyfire-pay-id") === null ||
-      req.headers.get("skyfire-pay-id") === "" ||
-      req.headers.get("skyfire-pay-id") === undefined
-    ) {
-      return new Response(
-        "Missing Kya+pay token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a kya+pay token - https://docs.skyfire.xyz/reference/create-token.",
-        {
-          status: 402,
-          statusText:
-            "Missing Kya+pay token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a kya+pay token - https://docs.skyfire.xyz/reference/create-token.",
-          headers: {},
-        }
-      );
-    }
+    // if (
+    //   req.headers.get("skyfire-pay-id") === null ||
+    //   req.headers.get("skyfire-pay-id") === "" ||
+    //   req.headers.get("skyfire-pay-id") === undefined
+    // ) {
+    //   return new Response(
+    //     "Missing Kya+pay token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a kya+pay token - https://docs.skyfire.xyz/reference/create-token.",
+    //     {
+    //       status: 402,
+    //       statusText:
+    //         "Missing Kya+pay token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a kya+pay token - https://docs.skyfire.xyz/reference/create-token.",
+    //       headers: {},
+    //     }
+    //   );
+    // }
+    const start = Date.now();
+    console.log("start", start);
+  const payload = jwt.verify(req.headers.get("skyfire-pay-id"), PUBLIC_KEY);
+  const end = Date.now();
+  console.log("end", start - end, end);
+   console.log("payload", JSON.stringify(payload));
+  //   skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
+  //     req.headers.get("skyfire-pay-id")
+  //   );
+  //   console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
+  // }
 
-    skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
-      req.headers.get("skyfire-pay-id")
-    );
-    console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
-  }
-
-  if (!skyfirePayIdVerificationRes.isValid) {
-    return new Response(skyfirePayIdVerificationRes.errorMessage, {
-      status: skyfirePayIdVerificationRes.errorStatusCode,
-      statusText: skyfirePayIdVerificationRes.errorMessage,
-      headers: {},
-    });
-  } else {
+  // if (!skyfirePayIdVerificationRes.isValid) {
+  //   return new Response(skyfirePayIdVerificationRes.errorMessage, {
+  //     status: skyfirePayIdVerificationRes.errorStatusCode,
+  //     statusText: skyfirePayIdVerificationRes.errorMessage,
+  //     headers: {},
+  //   });
+  // } else {
     const newReq = new Request(req, {
       headers: new Headers(req.headers),
     });
 
-    let { amountCharged, remainingBalance } = await chargeToken(
-      req.headers.get("skyfire-pay-id")
-    );
-    console.log("amountCharged from token - ", amountCharged);
-    console.log("remainingBalance from token - ", remainingBalance);
+    // let { amountCharged, remainingBalance } = await chargeToken(
+    //   req.headers.get("skyfire-pay-id")
+    // );
+    // console.log("amountCharged from token - ", amountCharged);
+    // console.log("remainingBalance from token - ", remainingBalance);
 
     // Send request to backend (configured as 'origin_0')
     const beresp = await fetch(newReq, {
       backend: "real_estate_protected_website",
     });
 
-    const bid = await new KVStore("first_KV_batch_charging").get(
-      "supreet@skyfire.xyz"
-    );
-    console.log("buyer identity", await bid.text());
+    // const bid = await new KVStore("first_KV_batch_charging").get(
+    //   "supreet@skyfire.xyz"
+    // );
+    // console.log("buyer identity", await bid.text());
 
     const respBody = await beresp.arrayBuffer();
     return new Response(respBody, {
