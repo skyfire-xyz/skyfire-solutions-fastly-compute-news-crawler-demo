@@ -9,7 +9,7 @@ let skyfirePayIdVerificationRes = {
 };
 
 const isBotRequest = (req) => {
-  console.log("req.headers.get(x-isbot)", req.headers.get("x-isbot"));
+  // console.log("req.headers.get(x-isbot)", req.headers.get("x-isbot"));
   return req.headers.get("x-isbot") === "true";
 };
 
@@ -36,11 +36,11 @@ async function chargeToken(skyfireToken, amountToCharge = "0.0001") {
       backend: "skyfire_be",
     });
 
-    console.log("response", response);
+    // console.log("response", response);
     const data = await response.json();
 
-    console.log("data", data);
-    console.log("typeof(data)", typeof data);
+    // console.log("data", data);
+    // console.log("typeof(data)", typeof data);
 
     if (data.code) {
       throw new Error(
@@ -73,15 +73,17 @@ VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
 async function verifySkyfirePayIdHeader(skyfireToken) {
   // Only verify & decode token if request is from a bot
   try {
-    if (jws.verify(skyfireToken, "ES256", jwtSecret)) {
+    // if (jws.verify(skyfireToken, "ES256", jwtSecret)) {
+    const jwtDecoded = jws.decode(skyfireToken, "ES256", jwtSecret);
+    console.log("jwtDecoded", jwtDecoded);
       const jwtPayload = JSON.parse(
-        jws.decode(skyfireToken, "ES256", jwtSecret).payload
+        jwtDecoded.payload
       );
 
-      const jwtHeader = jws.decode(skyfireToken, "ES256", jwtSecret).header;
+      const jwtHeader = jwtDecoded.header;
 
       if (!["kya+JWT", "kya+pay+JWT", "pay+JWT"].includes(jwtHeader.typ)) {
-        console.error(`Validation failed: typ should be one of kya+JWT or pay+JWT or kya+pay+JWT`);
+        // console.error(`Validation failed: typ should be one of kya+JWT or pay+JWT or kya+pay+JWT`);
         return {
           isValid: false,
           errorMessage: "Validation failed: typ should be one of kya+JWT or pay+JWT or kya+pay+JWT",
@@ -91,7 +93,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
 
       // email should be correct format
       if (!validator.isEmail(String(jwtPayload.bid.skyfireEmail))) {
-        console.error(`Validation failed: Invalid email format in 'bid.skyfireEmail' claim`);
+        // console.error(`Validation failed: Invalid email format in 'bid.skyfireEmail' claim`);
         return {
           isValid: false,
           errorMessage: "Validation failed: Invalid email format in 'bid.skyfireEmail' claim",
@@ -101,7 +103,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
       
       // env should be qa
       if (jwtPayload.env !=="qa") {
-        console.error(`Validation failed: Token is not from QA environment`);
+        // console.error(`Validation failed: Token is not from QA environment`);
         return {
           isValid: false,
           errorMessage: "Validation failed: Token is not from QA environment",
@@ -111,7 +113,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
       
       // jti should be a valid uuid
       if (!validator.isUUID(String(jwtPayload.jti))) {
-        console.error(`Validation failed: Invalid token ID (jti)`);
+        // console.error(`Validation failed: Invalid token ID (jti)`);
         return {
           isValid: false,
           errorMessage: "Validation failed: Invalid token ID (jti)",
@@ -121,7 +123,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
 
       // sub should be a valid uuid
       if (!validator.isUUID(String(jwtPayload.sub))) {
-        console.error(`Validation failed: Invalid subject (sub)`);
+        // console.error(`Validation failed: Invalid subject (sub)`);
         return {
           isValid: false,
           errorMessage: "Validation failed: Invalid subject (sub)",
@@ -131,7 +133,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
 
       // aud should be a valid uuid
       if (!validator.isUUID(String(jwtPayload.aud))) {
-        console.error(`Validation failed: Invalid audience (aud)`);
+        // console.error(`Validation failed: Invalid audience (aud)`);
         return {
           isValid: false,
           errorMessage: "Validation failed: Invalid audience (aud)",
@@ -141,6 +143,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
 
        if (["kya+JWT", "kya+pay+JWT"].includes(jwtHeader.typ)) {
         // log buyer identity in KV store
+        console.log("adding to KV store");
         await new KVStore("first_KV_batch_charging").put(
           jwtPayload?.bid?.skyfireEmail,
           Date.now()
@@ -153,10 +156,10 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
           let { amountCharged, remainingBalance } = await chargeToken(
             skyfireToken
           );
-          console.log("amountCharged from token - ", amountCharged);
-          console.log("remainingBalance from token - ", remainingBalance);
+          // console.log("amountCharged from token - ", amountCharged);
+          // console.log("remainingBalance from token - ", remainingBalance);
         } catch (err) {
-          console.error("Error while charging token: ", err);
+          // console.error("Error while charging token: ", err);
           return {
             isValid: false,
             errorMessage: "Payment Required: Error charging Token.",
@@ -169,15 +172,15 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
         isValid: true,
         jwtPayload,
       };
-    } else {
-      return {
-        isValid: false,
-        errorMessage: "Something went wrong while verifying your JWT token",
-        errorStatusCode: 401,
-      };
-    }
+    // } else {
+    //   return {
+    //     isValid: false,
+    //     errorMessage: "Something went wrong while verifying your JWT token",
+    //     errorStatusCode: 401,
+    //   };
+    // }
   } catch (err) {
-    console.error("Error while verifying token: ", { err });
+    // console.error("Error while verifying token: ", { err });
     return {
       isValid: false,
       errorMessage: "Something went wrong while verifying your JWT token",
@@ -189,7 +192,7 @@ async function verifySkyfirePayIdHeader(skyfireToken) {
 async function handleRequest(event) {
   const req = event.request;
 
-  console.log("isBotRequest(req)", isBotRequest(req));
+  // console.log("isBotRequest(req)", isBotRequest(req));
 
   if (isBotRequest(req)) {
     if (
@@ -208,25 +211,23 @@ async function handleRequest(event) {
       );
     }
 
-    skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
-      req.headers.get("skyfire-pay-id")
-    );
-    console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
+    // skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
+    //   req.headers.get("skyfire-pay-id")
+    // );
+    // console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
 
-    if (!skyfirePayIdVerificationRes.isValid) {
-      return new Response(skyfirePayIdVerificationRes.errorMessage, {
-        status: skyfirePayIdVerificationRes.errorStatusCode,
-        statusText: skyfirePayIdVerificationRes.errorMessage,
-        headers: {},
-      });
-    } else {
-      //TODO: only for testing - remove later - start
-      const bid = await new KVStore("first_KV_batch_charging").get(
-        "supreet@skyfire.xyz"
-      );
-      console.log("buyer identity", await bid.text());
-      //TODO: only for testing - remove later - end
-    }
+    // if (!skyfirePayIdVerificationRes.isValid) {
+    //   return new Response(skyfirePayIdVerificationRes.errorMessage, {
+    //     status: skyfirePayIdVerificationRes.errorStatusCode,
+    //     statusText: skyfirePayIdVerificationRes.errorMessage,
+    //     headers: {},
+    //   });
+    // }
+    let start =  Date.now();
+    console.log("start time", start)
+     jws.verify(req.headers.get("skyfire-pay-id"), "ES256", jwtSecret)
+    let end = Date.now();
+    console.log("end time", end-start, end)
   }
 
   // Send request to backend (configured as 'origin_0')
