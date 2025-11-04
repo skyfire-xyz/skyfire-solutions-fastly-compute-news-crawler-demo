@@ -1,8 +1,10 @@
-import { jwtDecode } from "jwt-decode";
+// import { jwtDecode } from "jwt-decode";
 import { KVStore } from "fastly:kv-store";
 import {
   jwtVerify,
   createRemoteJWKSet,
+  importSPKI,
+  importJWK,
   errors as joseErrors,
 } from "jose";
 
@@ -12,25 +14,25 @@ let skyfirePayIdVerificationRes = {
   isValid: true,
 };
 
-const isJWT = (token) => {
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    return false;
-  }
+// const isJWT = (token) => {
+//   const parts = token.split(".");
+//   if (parts.length !== 3) {
+//     return false;
+//   }
 
-  try {
-    const header = JSON.parse(atob(parts[0]));
-    if (!header || !header.alg) {
-      return false;
-    }
+//   try {
+//     const header = JSON.parse(atob(parts[0]));
+//     if (!header || !header.alg) {
+//       return false;
+//     }
 
-    JSON.parse(atob(parts[1])); // Attempt payload decoding
-  } catch {
-    return false;
-  }
+//     JSON.parse(atob(parts[1])); // Attempt payload decoding
+//   } catch {
+//     return false;
+//   }
 
-  return true;
-};
+//   return true;
+// };
 
 function isBotRequest(req) {
   console.log("req.headers.get(x-isbot)", req.headers.get("x-isbot"));
@@ -109,78 +111,91 @@ async function chargeToken(skyfireToken, amountToCharge = "0.0001") {
 }
 
 // Check for the custom header
-async function verifySkyfirePayIdHeader(skyfireToken) {
-  // Only decode token if request is from a bot
+// async function verifySkyfirePayIdHeader(skyfireToken) {
+//   // Only decode token if request is from a bot
 
- const JWT_ALGORITHM = "ES256";
- const SKYFIRE_API_URL = "https://api-qa.skyfire.xyz";
- const JWKS_URL = SKYFIRE_API_URL + "/.well-known/jwks.json";
+//  const JWT_ALGORITHM = "ES256";
+//  const SKYFIRE_API_URL = "https://api-qa.skyfire.xyz";
+//  const JWKS_URL = SKYFIRE_API_URL + "/.well-known/jwks.json";
 
- console.log("JWKS_URL", JWKS_URL);
+//  console.log("JWKS_URL", JWKS_URL);
 
- const JWT_ISSUER = "https://app-qa.skyfire.xyz";
- const JWT_AUDIENCE = "ab73a4e6-11c2-40d7-a07f-c61e95ffed2c";
- const JWT_SSI = "5e7f3359-9ec1-4078-bf45-401d079af1be";
- const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
- console.log("JWKS",JWKS);
+//  const JWT_ISSUER = "https://app-qa.skyfire.xyz";
+//  const JWT_AUDIENCE = "ab73a4e6-11c2-40d7-a07f-c61e95ffed2c";
+//  const JWT_SSI = "5e7f3359-9ec1-4078-bf45-401d079af1be";
+//  const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+//  console.log("JWKS",JWKS);
 
-  try {
-    // const { jwtPayload } = getDecodedJWT(skyfireToken);
-    // await new KVStore("first_KV_batch_charging").put(
-    //   jwtPayload?.bid?.skyfireEmail,
-    //   Date.now()
-    // );
+//   try {
+//     // const { jwtPayload } = getDecodedJWT(skyfireToken);
+//     // await new KVStore("first_KV_batch_charging").put(
+//     //   jwtPayload?.bid?.skyfireEmail,
+//     //   Date.now()
+//     // );
 
-        // return {
-    //   isValid: true,
-    // };
+//         // return {
+//     //   isValid: true,
+//     // };
 
+//  const JWT_ALGORITHM = "ES256";
+//  const SKYFIRE_API_URL = "https://api-qa.skyfire.xyz";
+//  const JWKS_URL = SKYFIRE_API_URL + "/.well-known/jwks.json";
 
-    const { payload } = await jwtVerify(skyfireToken, JWKS, {
-     issuer: JWT_ISSUER,
-     audience: JWT_AUDIENCE,
-     algorithms: [JWT_ALGORITHM],
-   });
+//  console.log("JWKS_URL", JWKS_URL);
 
+//  const JWT_ISSUER = "https://app-qa.skyfire.xyz";
+//  const JWT_AUDIENCE = "ab73a4e6-11c2-40d7-a07f-c61e95ffed2c";
+//  const JWT_SSI = "5e7f3359-9ec1-4078-bf45-401d079af1be";
+//  const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+//  console.log("JWKS",JWKS);
 
-   console.log("payload", JSON.stringify(payload));
+//  console.log("start", Date.now());
+//     const { payload } = await jwtVerify(skyfireToken, JWKS, {
+//      issuer: JWT_ISSUER,
+//      audience: JWT_AUDIENCE,
+//      algorithms: [JWT_ALGORITHM],
+//    });
 
-    if (payload.ssi !== JWT_SSI) {
-     return {
-       isValid: false,
-       errorMessage: "Invalid SSI in token",
-       errorStatusCode: 401,
-     };
-   }
-   return;
-    } catch (err) {
-    // return {
-    //   isValid: false,
-    //   errorMessage: "Something went wrong while verifying your JWT token",
-    //   errorStatusCode: 401,
-    // };
+// console.log("end", Date.now()-start, Date.now());
 
-    console.log({ err }, "Error while verifying token: ");
-   if (err instanceof joseErrors.JOSEError) {
-     return {
-       isValid: false,
-       errorMessage: "Your JWT token is invalid",
-       errorStatusCode: 401,
-     };
-   }
-   return {
-     isValid: false,
-     errorMessage: "Something went wrong while verifying your JWT token",
-     errorStatusCode: 401,
-   };
+//    console.log("payload", JSON.stringify(payload));
 
-  }
-}
+//     if (payload.ssi !== JWT_SSI) {
+//      return {
+//        isValid: false,
+//        errorMessage: "Invalid SSI in token",
+//        errorStatusCode: 401,
+//      };
+//    }
+//    return;
+//     } catch (err) {
+//     // return {
+//     //   isValid: false,
+//     //   errorMessage: "Something went wrong while verifying your JWT token",
+//     //   errorStatusCode: 401,
+//     // };
+
+//     console.log({ err }, "Error while verifying token: ");
+//    if (err instanceof joseErrors.JOSEError) {
+//      return {
+//        isValid: false,
+//        errorMessage: "Your JWT token is invalid",
+//        errorStatusCode: 401,
+//      };
+//    }
+//    return {
+//      isValid: false,
+//      errorMessage: "Something went wrong while verifying your JWT token",
+//      errorStatusCode: 401,
+//    };
+
+//   }
+// }
 
 async function handleRequest(event) {
   const req = event.request;
 
-  console.log("isBotRequest(req)", isBotRequest(req));
+  // console.log("isBotRequest(req)", isBotRequest(req));
 
   if (isBotRequest(req)) {
     console.log("req2", req);
@@ -210,38 +225,80 @@ async function handleRequest(event) {
       );
     }
 
-    skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
-      req.headers.get("skyfire-pay-id")
-    );
-    console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
+     const JWT_ALGORITHM = "ES256";
+ const SKYFIRE_API_URL = "https://api-qa.skyfire.xyz";
+ const JWKS_URL = SKYFIRE_API_URL + "/.well-known/jwks.json";
+
+ console.log("JWKS_URL", JWKS_URL);
+
+ const JWT_ISSUER = "https://app-qa.skyfire.xyz";
+ const JWT_AUDIENCE = "ab73a4e6-11c2-40d7-a07f-c61e95ffed2c";
+ const JWT_SSI = "5e7f3359-9ec1-4078-bf45-401d079af1be";
+//  const JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+try {
+  const JWKS = await importJWK({
+      "kid": "0",
+      "crv": "P-256",
+      "kty": "EC",
+      "x": "N1pqyHAt02vpYLoiXSjZPvPjJwZVVNfI7YZvgsXBbPA",
+      "y": "SEg4YTE0qaUTurbN-upataWMjWEEGRNJLxU4UVYabWc"
+    }, "ES256");
+} catch (err) {
+  console.error(err);
+}
+
+// const jwtSecret = `-----BEGIN PUBLIC KEY-----
+// MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEN1pqyHAt02vpYLoiXSjZPvPjJwZV
+// VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
+// -----END PUBLIC KEY-----`;
+// const JWKS = await importSPKI(jwtSecret, "ES256");
+
+     console.log("JWKS",JWKS);
+
+
+ console.log("start", Date.now());
+
+     const { payload } = await jwtVerify(req.headers.get("skyfire-pay-id"), JWKS, {
+     issuer: JWT_ISSUER,
+     audience: JWT_AUDIENCE,
+     algorithms: [JWT_ALGORITHM],
+   });
+
+console.log("end", Date.now()-start, Date.now());
+
+   console.log("verify payload", JSON.stringify(payload));
+    // skyfirePayIdVerificationRes = await verifySkyfirePayIdHeader(
+    //   req.headers.get("skyfire-pay-id")
+    // );
+    // console.log("skyfirePayIdVerificationRes", skyfirePayIdVerificationRes);
   }
 
-  if (!skyfirePayIdVerificationRes.isValid) {
-    return new Response(skyfirePayIdVerificationRes.errorMessage, {
-      status: skyfirePayIdVerificationRes.errorStatusCode,
-      statusText: skyfirePayIdVerificationRes.errorMessage,
-      headers: {},
-    });
-  } else {
+  // if (!skyfirePayIdVerificationRes.isValid) {
+  //   return new Response(skyfirePayIdVerificationRes.errorMessage, {
+  //     status: skyfirePayIdVerificationRes.errorStatusCode,
+  //     statusText: skyfirePayIdVerificationRes.errorMessage,
+  //     headers: {},
+  //   });
+  // } else {
     const newReq = new Request(req, {
       headers: new Headers(req.headers),
     });
 
-    let { amountCharged, remainingBalance } = await chargeToken(
-      req.headers.get("skyfire-pay-id")
-    );
-    console.log("amountCharged from token - ", amountCharged);
-    console.log("remainingBalance from token - ", remainingBalance);
+    // let { amountCharged, remainingBalance } = await chargeToken(
+    //   req.headers.get("skyfire-pay-id")
+    // );
+    // console.log("amountCharged from token - ", amountCharged);
+    // console.log("remainingBalance from token - ", remainingBalance);
 
     // Send request to backend (configured as 'origin_0')
     const beresp = await fetch(newReq, {
       backend: "real_estate_protected_website",
     });
 
-    const bid = await new KVStore("first_KV_batch_charging").get(
-      "supreet@skyfire.xyz"
-    );
-    console.log("buyer identity", await bid.text());
+    // const bid = await new KVStore("first_KV_batch_charging").get(
+    //   "supreet@skyfire.xyz"
+    // );
+    // console.log("buyer identity", await bid.text());
 
     const respBody = await beresp.arrayBuffer();
     return new Response(respBody, {
@@ -250,4 +307,4 @@ async function handleRequest(event) {
       headers: beresp.headers,
     });
   }
-}
+// }
