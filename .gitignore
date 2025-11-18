@@ -1,5 +1,4 @@
 /node_modules
 /bin
 /pkg
-dist/
-devconfig.json
+/devconfig.json

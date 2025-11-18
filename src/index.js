@@ -1,23 +1,57 @@
-import * as jws from "jws";
+// import * as jwt from 'jsonwebtoken';
+import { importJWK, jwtVerify } from 'jose';
+
+// const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+// MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEN1pqyHAt02vpYLoiXSjZPvPjJwZV
+// VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
+// -----END PUBLIC KEY-----`
+const JWK = {
+  kty: 'EC',
+  crv: 'P-256',
+  x: "N1pqyHAt02vpYLoiXSjZPvPjJwZVVNfI7YZvgsXBbPA",
+  y: "SEg4YTE0qaUTurbN-upataWMjWEEGRNJLxU4UVYabWc",
+};
+const keyP = importJWK(JWK, 'ES256');
 
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
-const jwtSecret = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEN1pqyHAt02vpYLoiXSjZPvPjJwZV
-VNfI7YZvgsXBbPBISDhhMTSppRO6ts366lq1pYyNYQQZE0kvFThRVhptZw==
------END PUBLIC KEY-----`;
-
 async function handleRequest(event) {
   const req = event.request;
+  const start = Date.now();
+  console.log("start", start);
 
-    let start =  Date.now();
-    console.log("start time", start)
-    const verifyRes = jws.verify(req.headers.get("skyfire-pay-id"), "ES256", jwtSecret)
-    let end = Date.now();
-    console.log("end time", end-start, end)
-    console.log("verifyRes", verifyRes);
-  
-  // Send request to backend (configured as 'origin_0')
+  // pull token & normalize
+  let token = req.headers.get("skyfire-pay-id");
+  if (!token) return new Response("Missing token", { status: 401 });
+  if (token.startsWith("Bearer ")) token = token.slice(7).trim();
+
+  // verify with clean 4xx handling
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(token, await keyP, { algorithms: ['ES256'] }));
+  } catch (err) {
+    const name = err?.code || err?.name || 'JOSEError';
+    console.log('JWT error:', name, err?.message);
+
+    if (name === 'JWSInvalid') {
+      return new Response('Invalid token format', { status: 400 });
+    }
+    if (name === 'JWSSignatureVerificationFailed') {
+      return new Response('Invalid token signature', { status: 401 });
+    }
+    if (name === 'JWTExpired') {
+      return new Response('Token expired', { status: 401 });
+    }
+    if (name === 'JWTClaimInvalid') {
+      return new Response('Invalid token claims', { status: 401 });
+    }
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  const end = Date.now();
+  console.log("end", start - end, end);
+  console.log("payload", JSON.stringify(payload));
+
   const newReq = new Request(req, {
     headers: new Headers(req.headers),
   });
@@ -27,7 +61,6 @@ async function handleRequest(event) {
   });
 
   const respBody = await beresp.arrayBuffer();
-
   return new Response(respBody, {
     status: beresp.status,
     statusText: beresp.statusText,

@@ -1,5 +1,0 @@
-{
-  "upstash_url": "https://sure-seasnail-19324.upstash.io/",
-  "upstash_token": "AUt8AAIncDI3Y2E3YmI0NzQyZDY0OWUxYTNiMzZkMzQ4NjVhYjNmNHAyMTkzMjQ",
-  "jwt_secret": "{\"kid\":\"0\",\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"N1pqyHAt02vpYLoiXSjZPvPjJwZVVNfI7YZvgsXBbPA\",\"y\":\"SEg4YTE0qaUTurbN-upataWMjWEEGRNJLxU4UVYabWc\",\"alg\":\"ES256\"}"
-}

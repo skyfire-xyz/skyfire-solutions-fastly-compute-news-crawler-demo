@@ -2,11 +2,11 @@
 # https://www.fastly.com/documentation/reference/compute/fastly-toml
 
 authors = ["supreet@skyfire.xyz"]
-description = "Batch charging of KYA+PAY tokens"
+description = "fiddle-trial"
 language = "javascript"
 manifest_version = 3
-name = "fastly_compute_with_KV_batch_charging"
-service_id = "VQ14GHWSSaNF0LlEVe1OSC"
+name = "fiddle"
+service_id = "6CHTeYtH3TTqPjWEgCRXSa"
 
 [local_server]
 
@@ -16,23 +16,5 @@ service_id = "VQ14GHWSSaNF0LlEVe1OSC"
       override_host = "demo-real-estate-prv4.onrender.com"
       url = "https://demo-real-estate-prv4.onrender.com"
 
-    [local_server.backends.skyfire_be]
-      override_host = "api-qa.skyfire.xyz"
-      url = "https://api-qa.skyfire.xyz"
-
-    [local_server.backends.upstash]
-      url = "https://sure-seasnail-19324.upstash.io"
-
-  [local_server.kv_stores]
-    first_KV_batch_charging = { file = './kv_data_example/example_kv_store.json', format = 'json' }
-
-[setup]
-  [setup.backends]
-    [setup.backends.real_estate_protected_website]
-      address = "demo-real-estate-prv4.onrender.com"
-      port = 443
-
-
 [scripts]
-  build = "npm run build"
-  post_init = "npm install"
+  build = "npx js-compute-runtime ./src/index.js ./bin/main.wasm"
