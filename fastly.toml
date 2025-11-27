@@ -16,5 +16,9 @@ service_id = "6CHTeYtH3TTqPjWEgCRXSa"
       override_host = "demo-real-estate-prv4.onrender.com"
       url = "https://demo-real-estate-prv4.onrender.com"
 
+    [local_server.backends.jwks_url]
+      override_host = "sky-dashboard-qa.onrender.com"
+      url = "https://sky-dashboard-qa.onrender.com"
+
 [scripts]
   build = "npx js-compute-runtime ./src/index.js ./bin/main.wasm"
