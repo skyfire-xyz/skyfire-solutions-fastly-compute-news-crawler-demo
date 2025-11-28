@@ -4,17 +4,12 @@ import { importJWK, jwtVerify } from "jose";
 async function handleRequest(event) {
   const req = event.request;
 
-  const start = Date.now();
-  console.log("start", start);
-  console.log("start19", start);
-
   const jwkResp = await fetch("/.well-known/jwks.json", {
     backend: "jwks_url",
     cacheOverride: new CacheOverride("override", {
       afterSend(res) {
-        console.log("in after send");
         res.ttl = 1000;
-        return {cache:true}
+        return { cache: true };
       },
     }),
   });
@@ -63,8 +58,6 @@ async function handleRequest(event) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const end = Date.now();
-  console.log("end", start - end, end);
   console.log("payload", JSON.stringify(payload));
 
   const newReq = new Request(req, {
@@ -75,14 +68,11 @@ async function handleRequest(event) {
     backend: "real_estate_protected_website",
   });
 
-  const headers = new Headers(beresp.headers);
-  headers.set("X-Compute-Fetched-At1", new Date(start).toISOString());
-
   const realEstateBody = await beresp.arrayBuffer();
   return new Response(realEstateBody, {
     status: beresp.status,
     statusText: beresp.statusText,
-    headers,
+    headers: beresp.headers,
   });
 }
 
