@@ -1,30 +1,37 @@
-import { CacheOverride } from 'fastly:cache-override';
-import { importJWK, jwtVerify } from 'jose';
+import { CacheOverride } from "fastly:cache-override";
+import { importJWK, jwtVerify } from "jose";
 
 async function handleRequest(event) {
   const req = event.request;
 
   const start = Date.now();
   console.log("start", start);
+  console.log("start19", start);
 
   const jwkResp = await fetch("/.well-known/jwks.json", {
     backend: "jwks_url",
-    cacheOverride: new CacheOverride("override", {ttl: 1000} )
-  })
+    cacheOverride: new CacheOverride("override", {
+      afterSend(res) {
+        console.log("in after send");
+        res.ttl = 1000;
+        return {cache:true}
+      },
+    }),
+  });
 
   const jwkResp1 = await jwkResp.json();
-  
+
   console.log("jwkResp1", jwkResp1);
   console.log("stringified jwkResp1", JSON.stringify(jwkResp1));
-  console.log("typeof(jwkResp1)", typeof(jwkResp1));
-  
-  const jwkRespKeys = jwkResp1.keys
+  console.log("typeof(jwkResp1)", typeof jwkResp1);
+
+  const jwkRespKeys = jwkResp1.keys;
   console.log("jwkRespKeys", jwkRespKeys);
 
   const jwkRespKeys0 = jwkRespKeys[0];
   console.log("jwkRespKeys0", jwkRespKeys0);
 
-  const keyP = importJWK(jwkRespKeys0, 'ES256');
+  const keyP = importJWK(jwkRespKeys0, "ES256");
   console.log("keyP", await keyP);
 
   // pull token & normalize
@@ -34,25 +41,26 @@ async function handleRequest(event) {
   // verify with clean 4xx handling
   let payload;
   try {
-    ({ payload } = await jwtVerify(token, await keyP, { algorithms: ['ES256'] }));
+    ({ payload } = await jwtVerify(token, await keyP, {
+      algorithms: ["ES256"],
+    }));
   } catch (err) {
-    const name = err?.code || err?.name || 'JOSEError';
-    console.log('JWT error:', name, err?.message);
+    const name = err?.code || err?.name || "JOSEError";
+    console.log("JWT error:", name, err?.message);
 
-
-    if (name === 'JWSInvalid') {
-      return new Response('Invalid token format', { status: 400 });
+    if (name === "JWSInvalid") {
+      return new Response("Invalid token format", { status: 400 });
     }
-    if (name === 'JWSSignatureVerificationFailed') {
-      return new Response('Invalid token signature', { status: 401 });
+    if (name === "JWSSignatureVerificationFailed") {
+      return new Response("Invalid token signature", { status: 401 });
     }
-    if (name === 'JWTExpired') {
-      return new Response('Token expired', { status: 401 });
+    if (name === "JWTExpired") {
+      return new Response("Token expired", { status: 401 });
     }
-    if (name === 'JWTClaimInvalid') {
-      return new Response('Invalid token claims', { status: 401 });
+    if (name === "JWTClaimInvalid") {
+      return new Response("Invalid token claims", { status: 401 });
     }
-    return new Response('Unauthorized', { status: 401 });
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const end = Date.now();
