@@ -43,16 +43,16 @@ async function handleRequest(event) {
     const name = err?.code || err?.name || "JOSEError";
     console.log("JWT error:", name, err?.message);
 
-    if (name === "JWSInvalid") {
+    if (name === "ERR_JWS_INVALID") { //JWSInvalid
       return new Response("Invalid token format", { status: 400 });
     }
-    if (name === "JWSSignatureVerificationFailed") {
+    if (name === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED") { //JWSSignatureVerificationFailed
       return new Response("Invalid token signature", { status: 401 });
     }
-    if (name === "JWTExpired") {
+    if (name === "ERR_JWT_EXPIRED") { //JWTExpired
       return new Response("Token expired", { status: 401 });
     }
-    if (name === "JWTClaimInvalid") {
+    if (name === "ERR_JWT_CLAIM_INVALID") { //JWTClaimInvalid
       return new Response("Invalid token claims", { status: 401 });
     }
     return new Response("Unauthorized", { status: 401 });
