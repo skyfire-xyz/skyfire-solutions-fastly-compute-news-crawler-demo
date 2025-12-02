@@ -53,7 +53,7 @@ The demo consists of four integrated projects that work together to demonstrate 
 
 1. Crawler Agent Frontend:
 
-- Available at: [https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute/crawler-agent-fe](/crawler-agent-fe/)
+- Available at: [https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute-news-crawler-demo/crawler-agent-fe](/crawler-agent-fe/)
 - Purpose: Interactive frontend that demonstrates the difference between authorized and unauthorized crawling
 - Features:
   - Skyfire token management interface
@@ -62,7 +62,7 @@ The demo consists of four integrated projects that work together to demonstrate 
 
 2. Crawler Agent Core:
 
-- Available at: [https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute/crawler-agent-core](/crawler-agent-core/)
+- Available at: [https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute-news-crawler-demo/crawler-agent-core](/crawler-agent-core/)
 - Purpose: Backend service that performs the actual crawling operations
 - Features:
   - Executes crawl requests with and without `kya` tokens
@@ -74,7 +74,7 @@ The demo consists of four integrated projects that work together to demonstrate 
 
 3. Fastly Compute Application:
 
-- Available at: [https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute/fastly](/fastly/)
+- Available at: [https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute-news-crawler-demo/fastly](/fastly/)
 - Purpose: Acts as the bot manager and `kya` token processor
 - Features:
   - `kya` Token Verification - Validates the tokens in the `skyfire-pay-id` header of the requests
@@ -89,7 +89,7 @@ The demo consists of four integrated projects that work together to demonstrate 
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute.git
+    git clone https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute-news-crawler-demo.git
     ```
 2.  Follow installation instructions in each sub-directory
 
