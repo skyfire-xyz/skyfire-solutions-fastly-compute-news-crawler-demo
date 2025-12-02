@@ -2,93 +2,78 @@ import { CacheOverride } from "fastly:cache-override";
 import { SimpleCache } from 'fastly:cache';
 import { importJWK, jwtVerify } from "jose";
 
-
+// Fetch JWK either from JWKS URL or from cache if useCache is true
 async function getJWKSKeysArray(useCache) {
   if (useCache) {
     var cacheData = SimpleCache.get("jwks-endpoint");
-    console.log("cacheData1", cacheData);
+    // Using data from cache
     if (cacheData) {
-      console.log("using data from cache");
       return JSON.parse(await cacheData.text());
     }
   }
 
-  console.log("fetching from skyfire ")
+  // Fetching from skyfire JWKS URL
   const jwkResp = await fetch("/.well-known/jwks.json", {
     backend: "jwks_url",
-    cacheOverride: new CacheOverride("pass"),
+    cacheOverride: new CacheOverride("pass"), // skip default cache
   });
 
   let jsonData = await jwkResp.json();
-  SimpleCache.set("jwks-endpoint", JSON.stringify(jsonData), 60000)
+  SimpleCache.set("jwks-endpoint", JSON.stringify(jsonData), 60000) // set in SimpleCache
 
   return jsonData;
-
 }
 
+// Select key with matching <kid> from multiple JWK keys
 function getKeyForKid(jwksData, kid) {
+  const selectedJWK = jwksData.filter((key) => {
+    return kid == key.kid
+  });
 
-    const selectedJWK = jwksData.filter((key) => {
-    console.log("kid",kid);
-    console.log("key.kid",key.kid);
-    console.log("typeof(kid)",typeof(kid));
-    console.log("typeof(key.kid)",typeof(key.kid));
-  return kid == key.kid
-});
-  console.log("selectedJWK", selectedJWK);
-
-  return selectedJWK.length > 0 ? selectedJWK[0]:null;
+  return selectedJWK.length > 0 ? selectedJWK[0] : null;
 }
 
 async function handleRequest(event) {
   const req = event.request;
-  console.log("version", 2)
 
-  // pull token & normalize
+  // Extract token from request headers
   let token = req.headers.get("skyfire-pay-id");
   if (!token) return new Response("Missing token", { status: 401 });
 
+  // Fetch JWK key
+  var jwkRespData = await getJWKSKeysArray(true);
+  const jwkRespKeys = jwkRespData.keys;
 
-  var jwkResp1 = await getJWKSKeysArray(true);
-
-  console.log("jwkResp1", jwkResp1);
-  console.log("stringified jwkResp1", JSON.stringify(jwkResp1));
-  console.log("typeof(jwkResp1)", typeof jwkResp1);
-
-  const jwkRespKeys = jwkResp1.keys;
-  console.log("jwkRespKeys", jwkRespKeys);
-
+  // Decode header from token to select matching <kid> for signature verification
   const base64HeaderUrl = token.split(".")[0];
   const base64Header = base64HeaderUrl.replace(/-/g, "+").replace(/_/g, "/"); // URL-safe Base64 conversion
 
-  var decodedHeader1;
+  var decodedHeader;
   try {
     // Decode using the built-in atob (for standard base64 string)
-    decodedHeader1 = JSON.parse(atob(base64Header));
-    console.log("JSON decodedHeader1", decodedHeader1);
-    // return decodedHeader; // Returns the raw JSON string of the header
+    decodedHeader = JSON.parse(atob(base64Header));
   } catch (e) {
     console.error("Failed to decode JWT header:", e);
     return new Response("Invalid token", { status: 403 });
   }
 
-  var relevantKey = getKeyForKid(jwkRespKeys, decodedHeader1.kid);
+  // Pick a relevant key from a list of JWK keys
+  var relevantKey = getKeyForKid(jwkRespKeys, decodedHeader.kid);
 
+  // If relevant key not found yet, retrieve fresh response from JWKS URL by passing useCache false in getJWKSKeysArray method
   if (!relevantKey) {
-      jwkResp1 = await getJWKSKeysArray(false);
-      relevantKey = getKeyForKid(jwkResp1.keys, decodedHeader1.kid)
+    jwkRespData = await getJWKSKeysArray(false);
+    relevantKey = getKeyForKid(jwkRespData.keys, decodedHeader.kid)
   }
 
-  if(!relevantKey){
-    console.log("invalid token")
-     return new Response("Invalid token", { status: 403 });
+  // If relevant key still not found, implies token is tampered
+  if (!relevantKey) {
+    return new Response("Invalid token", { status: 403 });
   }
-
 
   const keyP = importJWK(relevantKey, "ES256");
-  console.log("keyP", await keyP);
 
-  // verify with clean 4xx handling
+  // JWT verification logic here
   let payload;
   try {
     ({ payload } = await jwtVerify(token, await keyP, {
@@ -99,26 +84,22 @@ async function handleRequest(event) {
     console.log("JWT error:", name, err?.message);
 
     if (name === "ERR_JWS_INVALID") {
-      //JWSInvalid
       return new Response("Invalid token format", { status: 400 });
     }
     if (name === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED") {
-      //JWSSignatureVerificationFailed
       return new Response("Invalid token signature", { status: 401 });
     }
     if (name === "ERR_JWT_EXPIRED") {
-      //JWTExpired
       return new Response("Token expired", { status: 401 });
     }
     if (name === "ERR_JWT_CLAIM_INVALID") {
-      //JWTClaimInvalid
       return new Response("Invalid token claims", { status: 401 });
     }
     return new Response("Unauthorized", { status: 401 });
   }
 
-  console.log("payload", JSON.stringify(payload));
 
+  // Token verified, proceed with fetch to protected origin website
   const newReq = new Request(req, {
     headers: new Headers(req.headers),
   });
