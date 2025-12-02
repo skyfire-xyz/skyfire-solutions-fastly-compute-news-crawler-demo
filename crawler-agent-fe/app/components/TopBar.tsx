@@ -2,21 +2,7 @@
 
 import NavTabs from "./NavTabs";
 
-interface TopBarProps {
-  selectedUrl?: string
-  showAwsLink?: boolean
-}
-
-const AWS_URLS = [
-  "https://mock-news-site-aws-api-gateway.skyfire.xyz/",
-  "https://mock-news-site-aws-api-gateway-waf.skyfire.xyz/",
-  "https://mock-news-site-aws-cloudfront.skyfire.xyz/",
-  "https://mock-news-site-aws-cloudfront-waf.skyfire.xyz/",
-]
-
-export default function TopBar({ selectedUrl, showAwsLink: showAwsLinkProp }: TopBarProps) {
-  const showAwsGithubLink = !!selectedUrl && AWS_URLS.includes(selectedUrl)
-  const showAwsLink = typeof showAwsLinkProp === "boolean" ? showAwsLinkProp : showAwsGithubLink
+export default function TopBar() {
   return (
     <div className="pl-36 pt-6">
       {/* Header Section */}
@@ -78,23 +64,6 @@ export default function TopBar({ selectedUrl, showAwsLink: showAwsLinkProp }: To
               Reference Video: How the Smart Web Crawler Works
             </a>
           </div>
-
-          {/* AWS Reference Implementation Link - shown only for AWS specific MockNews URLs */}
-          {showAwsLink && (
-            <div className="mb-3">
-              <a
-                href="https://github.com/skyfire-xyz/skyfire-solutions-aws-news-crawler-demo"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm text-white transition hover:bg-gray-700"
-              >
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                </svg>
-                AWS Reference Implementation: GitHub
-              </a>
-            </div>
-          )}
 
           {/* Navigation Tabs - Slider Style */}
           <div className="mb-0">

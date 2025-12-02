@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import axios from "axios"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -25,8 +24,6 @@ interface SearchBarProps {
   inputPayment?: string
   setAlerts: React.Dispatch<React.SetStateAction<Alert[]>>
   skyfireKyaToken?: string
-  onAwsUrlChange?: (url: string) => void
-  pageRoute: string 
 }
 
 // Define the form schema with Zod
@@ -36,8 +33,6 @@ const searchFormSchema = z.object({
     .min(1, "URL is required")
     .url("Invalid URL format")
     .regex(/^https?:\/\//, "URL must start with http:// or https://"),
-  botType: z.string().optional(),
-  userAgent: z.string().optional(),
 })
 
 type SearchFormValues = z.infer<typeof searchFormSchema>
@@ -48,54 +43,10 @@ interface Suggestion {
   type: string
 }
 
-interface BotTypes {
-  type: string
-  description: string
-  userAgent: string
-}
-
 const suggestions: Suggestion[] = [
   { url: "https://skyfire.xyz", name: "Skyfire", type: "Unprotected" },
-  {
-    url: "https://mock-news-site.skyfire.xyz/",
-    name: "MockNews",
-    type: "Protected",
-  },
-  { url: "https://mock-news-site-aws-api-gateway.skyfire.xyz/", name: "MockNews (API Gateway)", type: "Protected" },
-  {
-    url: "https://mock-news-site-aws-api-gateway-waf.skyfire.xyz/",
-    name: "MockNews (API Gateway + WAF)",
-    type: "Protected",
-  },
-  { url: "https://mock-news-site-aws-cloudfront.skyfire.xyz/", name: "MockNews (CloudFront)", type: "Protected" }, 
-  {
-    url: "https://mock-news-site-aws-cloudfront-waf.skyfire.xyz/",
-    name: "MockNews (CloudFront + WAF)",
-    type: "Protected",
-  },
-]
-
-const WithTokenBotTypes: BotTypes[] = [
-  {
-    type: "Bot with Skyfire Identity - Allowed",
-    description: "Requires Skyfire KYA Token to access protected content",
-    userAgent: "GPTBot/1.0 (+https://www.gptbot.ai/)",
-  },
-  { type: "Bot with Skyfire Identity - Not Allowed", description: "Access not authorized at all",
-    userAgent: "Mozilla/5.0 (compatible; archive.org_bot +archive.org)"
-   },
-]
-
-const WithoutTokenBotTypes: BotTypes[] = [
-  {
-    type: "Identified and Allowed Bot",
-    description:
-      "Open access to protected content for Search Engine Bot (google/bing etc)",
-    userAgent: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-  },
-  { type: "Unidentified Bot", description: "No access",
-    userAgent: "Mozilla/5.0 (compatible; archive.org_bot +archive.org)"
-   },
+  { url: "https://mock-news-site.skyfire.xyz/", name: "MockNews", type: "Protected"},
+  { url: "https://mock-news-site-fastly.skyfire.xyz/", name: "MockNews (Fastly)", type: "Protected"}
 ]
 
 const SearchBar: React.FC<SearchBarProps> = ({
@@ -105,129 +56,56 @@ const SearchBar: React.FC<SearchBarProps> = ({
   inputPayment,
   setAlerts,
   skyfireKyaToken,
-  onAwsUrlChange,
-  pageRoute,
 }) => {
   const [kyaToken, setKyaToken] = useState<string>(skyfireKyaToken || "")
   const [isLoading, setIsLoading] = useState(false)
-  const [botTypes, setBotTypes] = useState<BotTypes[]>([])
-
-  useEffect(() => {
-    if (pageRoute === "/") {
-    setBotTypes(WithoutTokenBotTypes);
-  }
-  else if (pageRoute === "/token") {
-    setBotTypes(WithTokenBotTypes);
-  }
-}, [])
-
-  const [isUrlFocused, setIsUrlFocused] = useState(false)
-  const [selectedUrlIndex, setSelectedUrlIndex] = useState(-1)
-
-  const [isBotFocused, setIsBotFocused] = useState(false)
-  const [selectedBotIndex, setSelectedBotIndex] = useState(-1)
+  const [isFocused, setIsFocused] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
 
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(searchFormSchema),
     defaultValues: {
       url: "",
-      botType: "",
-      userAgent: "",
     },
   })
 
-  // watch selected url to decide whether to show bot dropdown
-  const selectedUrl = form.watch("url")
-
-  useEffect(() => {
-      // reset bot category when URL changes
-      form.setValue("botType", "")
-      if (typeof onAwsUrlChange === "function") {
-        onAwsUrlChange(selectedUrl)
-      }
-      setSelectedBotIndex(-1)
-      setIsBotFocused(false)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedUrl])
-
-  const showBotDropdown = [
-    "https://mock-news-site-aws-api-gateway-waf.skyfire.xyz/", 
-    "https://mock-news-site-aws-cloudfront-waf.skyfire.xyz/",
-  ].includes(selectedUrl)
-
-  // clear botType when bot dropdown shouldn't be shown
-  if (!showBotDropdown && form.getValues("botType")) {
-    form.setValue("botType", "")
-  }
-
-  const handleUrlKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isUrlFocused || suggestions.length === 0) return
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isFocused || suggestions.length === 0) return
 
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault()
-        setSelectedUrlIndex((prev) =>
+        setSelectedIndex((prev) =>
           prev < suggestions.length - 1 ? prev + 1 : prev
         )
         break
       case "ArrowUp":
         e.preventDefault()
-        setSelectedUrlIndex((prev) => (prev > 0 ? prev - 1 : -1))
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
         break
       case "Enter":
         e.preventDefault()
-        if (selectedUrlIndex >= 0) {
-          form.setValue("url", suggestions[selectedUrlIndex].url)
-          setIsUrlFocused(false)
-          setSelectedUrlIndex(-1)
+        if (selectedIndex >= 0) {
+          form.setValue("url", suggestions[selectedIndex].url)
+          setIsFocused(false)
+          setSelectedIndex(-1)
         }
         break
       case "Escape":
-        setIsUrlFocused(false)
-        setSelectedUrlIndex(-1)
-        break
-    }
-  }
-
-  const handleBotKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isBotFocused || botTypes.length === 0) return
-
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault()
-        setSelectedBotIndex((prev) =>
-          prev < botTypes.length - 1 ? prev + 1 : prev
-        )
-        break
-      case "ArrowUp":
-        e.preventDefault()
-        setSelectedBotIndex((prev) => (prev > 0 ? prev - 1 : -1))
-        break
-      case "Enter":
-        e.preventDefault()
-        if (selectedBotIndex >= 0) {
-          form.setValue("botType", botTypes[selectedBotIndex].type)
-          form.setValue("userAgent", botTypes[selectedBotIndex].userAgent)
-          setIsBotFocused(false)
-          setSelectedBotIndex(-1)
-        }
-        break
-      case "Escape":
-        setIsBotFocused(false)
-        setSelectedBotIndex(-1)
+        setIsFocused(false)
+        setSelectedIndex(-1)
         break
     }
   }
 
   const onSubmit = async (data: SearchFormValues) => {
-    setIsUrlFocused(false)
-    setIsBotFocused(false)
+    setIsFocused(false)
     await onSearch()
     try {
       setIsLoading(true)
       setAlerts([])
 
-      const crawlerEndpoint = `${process.env.NEXT_PUBLIC_SERVICE_BASE_URL}/crawl`
+      const crawlerEndpoint = `${process.env.NEXT_PUBLIC_SERVICE_BASE_URL}/crawl` 
       const requestBody = {
         startUrl: data.url,
         channelId: channelId,
@@ -236,18 +114,17 @@ const SearchBar: React.FC<SearchBarProps> = ({
           inputPayment !== "" && { inputCost: Number(inputPayment) }),
         ...(inputDepth &&
           inputDepth !== "" && { inputDepth: Number(inputDepth) }),
-        ...(data.botType && { "botType": data.botType }),
-        ...(data.userAgent && { "userAgent": data.userAgent }),
       }
 
       const headers: Record<string, string> = {
         "content-type": "application/json",
       }
 
-      await axios.post(crawlerEndpoint, requestBody, { headers })
+     
+        await axios.post(crawlerEndpoint, requestBody, { headers })
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        if (err.message === "Network Error") {
+       if (err.message === "Network Error") {
           setAlerts([
             {
               type: AlertType.NETWORK,
@@ -271,15 +148,14 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
   const onStop = async () => {
     try {
-      setIsLoading(false)
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_SERVICE_BASE_URL}/crawl/stop`,
-        { channelId: channelId }
-      )
+      setIsLoading(false); 
+      await axios.post(`${process.env.NEXT_PUBLIC_SERVICE_BASE_URL}/crawl/stop`, {channelId: channelId});
+      // setAlerts([{ type: AlertType.INFO, message: "Crawling stopped." }]);
     } catch (err) {
-      console.error("Stop error:", err)
+      // setAlerts([{ type: AlertType.INVALID, message: "Failed to stop crawling." }]);
+      console.error("Stop error:", err);
     }
-  }
+  };
 
   return (
     <Form {...form}>
@@ -295,36 +171,36 @@ const SearchBar: React.FC<SearchBarProps> = ({
                     <div className="relative">
                       <Input
                         {...field}
-                        onFocus={() => setIsUrlFocused(true)}
+                        onFocus={() => setIsFocused(true)}
                         onBlur={() =>
-                          setTimeout(() => setIsUrlFocused(false), 200)
+                          setTimeout(() => setIsFocused(false), 200)
                         }
-                        onKeyDown={handleUrlKeyDown}
+                        onKeyDown={handleKeyDown}
                         placeholder="Select or Enter website URL"
                         autoComplete="off"
                       />
-                      {isUrlFocused && (
+                      {isFocused && (
                         <div className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white shadow-lg">
                           {suggestions.map((suggestion, index) => (
                             <div
                               key={suggestion.url}
                               className={`cursor-pointer border-b px-4 py-3 last:border-b-0 ${
-                                index === selectedUrlIndex
+                                index === selectedIndex
                                   ? "border-blue-200 bg-gray-50"
                                   : "hover:bg-gray-50"
                               }`}
                               onClick={() => {
                                 field.onChange(suggestion.url)
-                                setIsUrlFocused(false)
-                                setSelectedUrlIndex(-1)
+                                setIsFocused(false)
+                                setSelectedIndex(-1)
                               }}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex min-w-0 flex-1 items-center gap-3">
                                   <span
                                     className={`rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-800 ${
-                                      suggestion.type === "Protected"
-                                        ? "mr-4"
+                                      suggestion.type === "Protected" 
+                                        ? "mr-4" 
                                         : ""
                                     }`}
                                   >
@@ -352,60 +228,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
                 </FormItem>
               )}
             />
-            {/* Show botType dropdown only for specific protected MockNews URLs */}
-            {showBotDropdown && (
-              <div className="mt-3">
-                <FormField
-                  control={form.control}
-                  name="botType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            {...field}
-                            onFocus={() => setIsBotFocused(true)}
-                            onBlur={() => setTimeout(() => setIsBotFocused(false), 200)}
-                            onKeyDown={handleBotKeyDown}
-                            placeholder="Select bot category"
-                            autoComplete="off"
-                          />
-                          {isBotFocused && (
-                            <div className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-white shadow-lg">
-                              {botTypes.map((bot, index) => (
-                                <div
-                                  key={bot.type}
-                                  className={`cursor-pointer border-b px-4 py-3 last:border-b-0 ${
-                                    index === selectedBotIndex ? "border-blue-200 bg-gray-50" : "hover:bg-gray-50"
-                                  }`}
-                                  onClick={() => {
-                                    field.onChange(bot.type)
-                                    setIsBotFocused(false)
-                                    setSelectedBotIndex(-1)
-                                    form.setValue("userAgent", bot.userAgent)
-                                  }}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="truncate text-sm font-medium text-gray-900">
-                                        {bot.type}
-                                      </div>
-                                      <div className="mt-1 truncate text-xs text-gray-500">
-                                        {bot.description}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
           </div>
 
           <Button
@@ -416,18 +238,17 @@ const SearchBar: React.FC<SearchBarProps> = ({
           >
             {isLoading ? "Crawling..." : "Crawl"}
           </Button>
-          {isLoading ? (
-            <Button
-              type="button"
-              onClick={() => form.handleSubmit(onStop)()}
-              disabled={!isLoading}
-              variant="secondary"
-            >
-              Stop Crawling
-            </Button>
-          ) : (
-            <></>
-          )}
+          {isLoading ? 
+          <Button
+            type="button"
+            onClick={() => form.handleSubmit(onStop)()}
+            disabled={!isLoading}
+            variant="secondary"
+          >
+            Stop Crawling
+          </Button>
+          : <></>
+          }
         </div>
       </form>
     </Form>

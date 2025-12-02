@@ -6,14 +6,12 @@ import SearchBar from "./SearchBar";
 import { Alert, MessageData } from "../types";
 
 interface CrawlSearchLogProps {
-  pageRoute: string;
   skyfireKyaToken?: string;
-  onAwsUrlChange?: (url: string) => void;
 }
 
 const channelId = uuidv4();
 
-export default function CrawlSearchLog({ pageRoute, skyfireKyaToken, onAwsUrlChange }: CrawlSearchLogProps) {
+export default function CrawlSearchLog({ skyfireKyaToken }: CrawlSearchLogProps) {
   const [currentSite, setCurrentSite] = useState<MessageData>();
   const [summary, setSummary] = useState<MessageData>();
   const [depth, setDepth] = useState<string | undefined>(undefined);
@@ -78,8 +76,6 @@ export default function CrawlSearchLog({ pageRoute, skyfireKyaToken, onAwsUrlCha
             inputPayment={payment}
             setAlerts={setAlerts}
             skyfireKyaToken={skyfireKyaToken}
-            onAwsUrlChange={onAwsUrlChange}
-            pageRoute={pageRoute}
           />
         </div>
       </div>
@@ -97,4 +93,4 @@ export default function CrawlSearchLog({ pageRoute, skyfireKyaToken, onAwsUrlCha
       </div>
     </div>
   );
-}
+} 

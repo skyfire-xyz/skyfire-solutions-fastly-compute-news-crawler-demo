@@ -38,7 +38,7 @@ async function handleRequest(event) {
 
   // Extract token from request headers
   let token = req.headers.get("skyfire-pay-id");
-  if (!token) return new Response("Missing token", { status: 401 });
+  if (!token) return new Response(JSON.stringify({"error":"Missing KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 403, headers: {"content-type": "application/json"} });
 
   // Fetch JWK key
   var jwkRespData = await getJWKSKeysArray(true);
@@ -54,7 +54,7 @@ async function handleRequest(event) {
     decodedHeader = JSON.parse(atob(base64Header));
   } catch (e) {
     console.error("Failed to decode JWT header:", e);
-    return new Response("Invalid token", { status: 403 });
+    return new Response(JSON.stringify({"error":"Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 403, headers: {"content-type": "application/json"} });
   }
 
   // Pick a relevant key from a list of JWK keys
@@ -68,7 +68,7 @@ async function handleRequest(event) {
 
   // If relevant key still not found, implies token is tampered
   if (!relevantKey) {
-    return new Response("Invalid token", { status: 403 });
+    return new Response(JSON.stringify({"error":"Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 403, headers: {"content-type": "application/json"} });
   }
 
   const keyP = importJWK(relevantKey, "ES256");
@@ -84,18 +84,18 @@ async function handleRequest(event) {
     console.log("JWT error:", name, err?.message);
 
     if (name === "ERR_JWS_INVALID") {
-      return new Response("Invalid token format", { status: 400 });
+      return new Response(JSON.stringify({"error": "Invalid token format"}), { status: 400, headers: {"content-type": "application/json"} });
     }
     if (name === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED") {
-      return new Response("Invalid token signature", { status: 401 });
+      return new Response(JSON.stringify({"error": "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 401, headers: {"content-type": "application/json"} });
     }
     if (name === "ERR_JWT_EXPIRED") {
-      return new Response("Token expired", { status: 401 });
+      return new Response(JSON.stringify({"error": "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 401, headers: {"content-type": "application/json"} });
     }
     if (name === "ERR_JWT_CLAIM_INVALID") {
-      return new Response("Invalid token claims", { status: 401 });
+      return new Response(JSON.stringify({"error": "Invalid token claims"}), { status: 401, headers: {"content-type": "application/json"} });
     }
-    return new Response("Unauthorized", { status: 401 });
+    return new Response(JSON.stringify({"error": "Unauthorized"}), { status: 401, headers: {"content-type": "application/json"} });
   }
 
 
@@ -105,11 +105,11 @@ async function handleRequest(event) {
   });
 
   const beresp = await fetch(newReq, {
-    backend: "real_estate_protected_website",
+    backend: "news_protected_website",
   });
 
-  const realEstateBody = await beresp.arrayBuffer();
-  return new Response(realEstateBody, {
+  const newsBody = await beresp.arrayBuffer();
+  return new Response(newsBody, {
     status: beresp.status,
     statusText: beresp.statusText,
     headers: beresp.headers,

@@ -12,13 +12,13 @@ service_id = "6CHTeYtH3TTqPjWEgCRXSa"
 
   [local_server.backends]
 
-    [local_server.backends.real_estate_protected_website]
-      override_host = "demo-real-estate-prv4.onrender.com"
-      url = "https://demo-real-estate-prv4.onrender.com"
+    [local_server.backends.news_protected_website]
+      override_host = "demo-mock-news.onrender.com"
+      url = "https://demo-mock-news.onrender.com/"
 
     [local_server.backends.jwks_url]
-      override_host = "sky-dashboard-qa.onrender.com"
-      url = "https://sky-dashboard-qa.onrender.com"
+      override_host = "app.skyfire.xyz"
+      url = "https://app.skyfire.xyz/"
 
 [scripts]
   build = "npx js-compute-runtime --enable-http-cache ./src/index.js ./bin/main.wasm"
