@@ -1,0 +1,24 @@
+# This file describes a Fastly Compute package. To learn more visit:
+# https://www.fastly.com/documentation/reference/compute/fastly-toml
+
+authors = ["supreet@skyfire.xyz"]
+description = "fiddle-trial"
+language = "javascript"
+manifest_version = 3
+name = "fiddle"
+service_id = "6CHTeYtH3TTqPjWEgCRXSa"
+
+[local_server]
+
+  [local_server.backends]
+
+    [local_server.backends.news_protected_website]
+      override_host = "demo-mock-news.onrender.com"
+      url = "https://demo-mock-news.onrender.com/"
+
+    [local_server.backends.jwks_url]
+      override_host = "app.skyfire.xyz"
+      url = "https://app.skyfire.xyz/"
+
+[scripts]
+  build = "npx js-compute-runtime --enable-http-cache ./src/index.js ./bin/main.wasm"
