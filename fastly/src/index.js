@@ -1,14 +1,29 @@
 import { CacheOverride } from "fastly:cache-override";
-import { SimpleCache } from 'fastly:cache';
+// import { SimpleCache } from "fastly:cache";
 import { importJWK, jwtVerify } from "jose";
+// import Fastly from "fastly";
+
+// // Fastly - "User token for Global API Access"
+// const API_TOKEN = "lVZ1YLTLkO4TnkaUaA2ytYZjTXxrHqjI";
+// const automation_token= "EmSfs5VHDqS9lxlSPo022IoZn25Gui0_"
+
 
 // Fetch JWK either from JWKS URL or from cache if useCache is true
 async function getJWKSKeysArray(useCache) {
   if (useCache) {
-    var cacheData = SimpleCache.get("jwks-endpoint");
+    // var cacheData = SimpleCache.get("jwks-endpoint");
+    var cacheData = await fetch("/.well-known/jwks.json", {
+      backend: "jwks_url",
+      cacheOverride: new CacheOverride("override", {
+        afterSend(res) {
+          res.ttl = 1000;
+          return { cache: true };
+        },
+      }), // skip default cache
+    });
     // Using data from cache
     if (cacheData) {
-      return JSON.parse(await cacheData.text());
+      return await cacheData.json();
     }
   }
 
@@ -19,26 +34,33 @@ async function getJWKSKeysArray(useCache) {
   });
 
   let jsonData = await jwkResp.json();
-  SimpleCache.set("jwks-endpoint", JSON.stringify(jsonData), 60000) // set in SimpleCache
-
+  // SimpleCache.set("jwks-endpoint", JSON.stringify(jsonData), 60000); // set in SimpleCache
   return jsonData;
 }
 
 // Select key with matching <kid> from multiple JWK keys
 function getKeyForKid(jwksData, kid) {
   const selectedJWK = jwksData.filter((key) => {
-    return kid == key.kid
+    return kid == key.kid;
   });
 
   return selectedJWK.length > 0 ? selectedJWK[0] : null;
 }
 
 async function handleRequest(event) {
+  console.log("version 4")
   const req = event.request;
 
   // Extract token from request headers
   let token = req.headers.get("skyfire-pay-id");
-  if (!token) return new Response(JSON.stringify({"error":"Missing KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 403, headers: {"content-type": "application/json"} });
+  if (!token)
+    return new Response(
+      JSON.stringify({
+        error:
+          "Missing KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
+      }),
+      { status: 403, headers: { "content-type": "application/json" } }
+    );
 
   // Fetch JWK key
   var jwkRespData = await getJWKSKeysArray(true);
@@ -54,7 +76,13 @@ async function handleRequest(event) {
     decodedHeader = JSON.parse(atob(base64Header));
   } catch (e) {
     console.error("Failed to decode JWT header:", e);
-    return new Response(JSON.stringify({"error":"Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 403, headers: {"content-type": "application/json"} });
+    return new Response(
+      JSON.stringify({
+        error:
+          "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
+      }),
+      { status: 403, headers: { "content-type": "application/json" } }
+    );
   }
 
   // Pick a relevant key from a list of JWK keys
@@ -63,12 +91,22 @@ async function handleRequest(event) {
   // If relevant key not found yet, retrieve fresh response from JWKS URL by passing useCache false in getJWKSKeysArray method
   if (!relevantKey) {
     jwkRespData = await getJWKSKeysArray(false);
-    relevantKey = getKeyForKid(jwkRespData.keys, decodedHeader.kid)
-  }
+    relevantKey = getKeyForKid(jwkRespData.keys, decodedHeader.kid);
 
-  // If relevant key still not found, implies token is tampered
-  if (!relevantKey) {
-    return new Response(JSON.stringify({"error":"Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 403, headers: {"content-type": "application/json"} });
+    // if matching key is found from latest JWKS URL response, purge cache
+    if (relevantKey) {
+        await fetch("/.well-known/jwks.json", { backend: "jwks_url", method: "PURGE" });
+    }
+    else {
+      // If relevant key still not found, implies token is tampered
+      return new Response(
+      JSON.stringify({
+        error:
+          "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
+      }),
+      { status: 403, headers: { "content-type": "application/json" } }
+    );
+    }
   }
 
   const keyP = importJWK(relevantKey, "ES256");
@@ -84,20 +122,40 @@ async function handleRequest(event) {
     console.log("JWT error:", name, err?.message);
 
     if (name === "ERR_JWS_INVALID") {
-      return new Response(JSON.stringify({"error": "Invalid token format"}), { status: 400, headers: {"content-type": "application/json"} });
+      return new Response(JSON.stringify({ error: "Invalid token format" }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
     }
     if (name === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED") {
-      return new Response(JSON.stringify({"error": "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 401, headers: {"content-type": "application/json"} });
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
+        }),
+        { status: 401, headers: { "content-type": "application/json" } }
+      );
     }
     if (name === "ERR_JWT_EXPIRED") {
-      return new Response(JSON.stringify({"error": "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token."}), { status: 401, headers: {"content-type": "application/json"} });
+      return new Response(
+        JSON.stringify({
+          error:
+            "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
+        }),
+        { status: 401, headers: { "content-type": "application/json" } }
+      );
     }
     if (name === "ERR_JWT_CLAIM_INVALID") {
-      return new Response(JSON.stringify({"error": "Invalid token claims"}), { status: 401, headers: {"content-type": "application/json"} });
+      return new Response(JSON.stringify({ error: "Invalid token claims" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
     }
-    return new Response(JSON.stringify({"error": "Unauthorized"}), { status: 401, headers: {"content-type": "application/json"} });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
   }
-
 
   // Token verified, proceed with fetch to protected origin website
   const newReq = new Request(req, {

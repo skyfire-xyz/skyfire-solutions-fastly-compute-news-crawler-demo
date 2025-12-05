@@ -2,7 +2,8 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@fastly/js-compute":"^3.27.2",
+    "@fastly/js-compute": "^3.27.2",
+    "fastly": "^14.0.0",
     "jose": "^5.2.0"
   },
   "scripts": {
