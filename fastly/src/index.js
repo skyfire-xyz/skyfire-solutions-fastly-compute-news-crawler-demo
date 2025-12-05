@@ -1,41 +1,30 @@
 import { CacheOverride } from "fastly:cache-override";
-// import { SimpleCache } from "fastly:cache";
-import { importJWK, jwtVerify } from "jose";
-// import Fastly from "fastly";
-
-// // Fastly - "User token for Global API Access"
-// const API_TOKEN = "lVZ1YLTLkO4TnkaUaA2ytYZjTXxrHqjI";
-// const automation_token= "EmSfs5VHDqS9lxlSPo022IoZn25Gui0_"
-
+import { importJWK, jwtVerify, decodeProtectedHeader } from "jose";
 
 // Fetch JWK either from JWKS URL or from cache if useCache is true
 async function getJWKSKeysArray(useCache) {
+  let jwkResp;
   if (useCache) {
-    // var cacheData = SimpleCache.get("jwks-endpoint");
-    var cacheData = await fetch("/.well-known/jwks.json", {
+    jwkResp = await fetch("/.well-known/jwks.json", {
       backend: "jwks_url",
       cacheOverride: new CacheOverride("override", {
         afterSend(res) {
           res.ttl = 1000;
           return { cache: true };
         },
-      }), // skip default cache
+      }),
     });
-    // Using data from cache
-    if (cacheData) {
-      return await cacheData.json();
-    }
   }
 
-  // Fetching from skyfire JWKS URL
-  const jwkResp = await fetch("/.well-known/jwks.json", {
-    backend: "jwks_url",
-    cacheOverride: new CacheOverride("pass"), // skip default cache
-  });
+  else {
+    // Force fetching from skyfire JWKS URL
+    jwkResp = await fetch("/.well-known/jwks.json", {
+      backend: "jwks_url",
+      cacheOverride: new CacheOverride("pass"), // skip default cache
+    });
+  }
 
-  let jsonData = await jwkResp.json();
-  // SimpleCache.set("jwks-endpoint", JSON.stringify(jsonData), 60000); // set in SimpleCache
-  return jsonData;
+  return await jwkResp.json();
 }
 
 // Select key with matching <kid> from multiple JWK keys
@@ -48,7 +37,6 @@ function getKeyForKid(jwksData, kid) {
 }
 
 async function handleRequest(event) {
-  console.log("version 4")
   const req = event.request;
 
   // Extract token from request headers
@@ -67,13 +55,10 @@ async function handleRequest(event) {
   const jwkRespKeys = jwkRespData.keys;
 
   // Decode header from token to select matching <kid> for signature verification
-  const base64HeaderUrl = token.split(".")[0];
-  const base64Header = base64HeaderUrl.replace(/-/g, "+").replace(/_/g, "/"); // URL-safe Base64 conversion
-
-  var decodedHeader;
+  let decodedHeader;
   try {
     // Decode using the built-in atob (for standard base64 string)
-    decodedHeader = JSON.parse(atob(base64Header));
+    decodedHeader = decodeProtectedHeader(token); //JSON.parse(atob(base64Header));
   } catch (e) {
     console.error("Failed to decode JWT header:", e);
     return new Response(
@@ -95,24 +80,23 @@ async function handleRequest(event) {
 
     // if matching key is found from latest JWKS URL response, purge cache
     if (relevantKey) {
-        await fetch("/.well-known/jwks.json", { backend: "jwks_url", method: "PURGE" });
+      await fetch("/.well-known/jwks.json", { backend: "jwks_url", method: "PURGE" });
     }
     else {
       // If relevant key still not found, implies token is tampered
       return new Response(
-      JSON.stringify({
-        error:
-          "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
-      }),
-      { status: 403, headers: { "content-type": "application/json" } }
-    );
+        JSON.stringify({
+          error:
+            "Invalid KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.",
+        }),
+        { status: 403, headers: { "content-type": "application/json" } }
+      );
     }
   }
 
   const keyP = importJWK(relevantKey, "ES256");
 
   // JWT verification logic here
-  let payload;
   try {
     ({ payload } = await jwtVerify(token, await keyP, {
       algorithms: ["ES256"],
