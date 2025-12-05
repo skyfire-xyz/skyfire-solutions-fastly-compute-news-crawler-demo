@@ -1,0 +1,13 @@
+{
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@fastly/js-compute":"^3.27.2",
+    "jose": "^5.2.0"
+  },
+  "scripts": {
+    "build": "fastly compute build",
+    "start": "fastly compute serve",
+    "deploy": "fastly compute publish"
+  }
+}
