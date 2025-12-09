@@ -17,6 +17,7 @@ export default function App() {
   const [_summary, setSummary] = useState<MessageData>()
   const [_log, setLog] = useState<MessageData[]>([])
   const [_isMediumScreen, setIsMediumScreen] = useState(true)
+  const [selectedUrl, setSelectedUrl] = useState<string>("")
 
   const searchParams = useSearchParams();
   const skyfireKyaToken = searchParams.get("token") || undefined;
@@ -59,9 +60,9 @@ export default function App() {
 
   return (
     <>
-    <TopBar />
+    <TopBar selectedUrl={selectedUrl} />
     <PageLayout>
-      <CrawlSearchLog skyfireKyaToken={skyfireKyaToken} />
+      <CrawlSearchLog skyfireKyaToken={skyfireKyaToken} onFastlyUrlChange={setSelectedUrl} />
     </PageLayout>
     </>
   )

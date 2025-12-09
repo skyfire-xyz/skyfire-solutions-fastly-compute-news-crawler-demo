@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import axios from "axios"
 import { useForm } from "react-hook-form"
@@ -24,6 +24,7 @@ interface SearchBarProps {
   inputPayment?: string
   setAlerts: React.Dispatch<React.SetStateAction<Alert[]>>
   skyfireKyaToken?: string
+  onFastlyUrlChange?: (url: string) => void
 }
 
 // Define the form schema with Zod
@@ -56,6 +57,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   inputPayment,
   setAlerts,
   skyfireKyaToken,
+  onFastlyUrlChange,
 }) => {
   const [kyaToken, setKyaToken] = useState<string>(skyfireKyaToken || "")
   const [isLoading, setIsLoading] = useState(false)
@@ -68,6 +70,15 @@ const SearchBar: React.FC<SearchBarProps> = ({
       url: "",
     },
   })
+
+  const selectedUrl = form.watch("url")
+
+  useEffect(() => {
+      if (typeof onFastlyUrlChange === "function") {
+        onFastlyUrlChange(selectedUrl)
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedUrl])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isFocused || suggestions.length === 0) return

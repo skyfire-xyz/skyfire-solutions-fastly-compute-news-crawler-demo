@@ -17,6 +17,7 @@ export default function CrawlWithTokenPage() {
     const [error, setError] = useState<string | null>(null)
     const [kyaToken, setKyaToken] = useState<string | null>("")
     const [decodedToken, setDecodedToken] = useState<any>(null)
+    const [selectedUrl, setSelectedUrl] = useState<string>("")
 
     const handleStartOver = async () => {
       setKyaToken(null)
@@ -78,7 +79,7 @@ export default function CrawlWithTokenPage() {
 
         return (
         <>
-            <TopBar />
+            <TopBar selectedUrl={selectedUrl} />
             <PageLayout>
                 <div className="space-y-6">
                     {/* API Key Section */}
@@ -169,7 +170,7 @@ export default function CrawlWithTokenPage() {
                                 <div className="mt-8">
                                     <h2 className="mb-4 text-xl font-semibold text-gray-900">Step 3: Select website to crawl</h2>
                                     <div className="mt-6">
-                                        <CrawlSearchLog skyfireKyaToken={kyaToken} />
+                                        <CrawlSearchLog skyfireKyaToken={kyaToken} onFastlyUrlChange={setSelectedUrl} />
                                     </div>
                                 </div>
                             </>
