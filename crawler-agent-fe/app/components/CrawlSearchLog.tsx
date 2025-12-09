@@ -7,11 +7,12 @@ import { Alert, MessageData } from "../types";
 
 interface CrawlSearchLogProps {
   skyfireKyaToken?: string;
+  onFastlyUrlChange?: (url: string) => void;
 }
 
 const channelId = uuidv4();
 
-export default function CrawlSearchLog({ skyfireKyaToken }: CrawlSearchLogProps) {
+export default function CrawlSearchLog({ skyfireKyaToken, onFastlyUrlChange }: CrawlSearchLogProps) {
   const [currentSite, setCurrentSite] = useState<MessageData>();
   const [summary, setSummary] = useState<MessageData>();
   const [depth, setDepth] = useState<string | undefined>(undefined);
@@ -76,6 +77,7 @@ export default function CrawlSearchLog({ skyfireKyaToken }: CrawlSearchLogProps)
             inputPayment={payment}
             setAlerts={setAlerts}
             skyfireKyaToken={skyfireKyaToken}
+            onFastlyUrlChange={onFastlyUrlChange}
           />
         </div>
       </div>

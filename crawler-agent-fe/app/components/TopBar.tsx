@@ -2,7 +2,17 @@
 
 import NavTabs from "./NavTabs";
 
-export default function TopBar() {
+interface TopBarProps {
+  selectedUrl?: string
+  showFastlyLink?: boolean
+}
+
+const FASTLY_URL = process.env.NEXT_PUBLIC_TARGET_SITE || ""
+
+export default function TopBar({selectedUrl, showFastlyLink: showFastlyLinkProp} : TopBarProps) {
+  const showFastlyGithubLink = !!selectedUrl && FASTLY_URL === selectedUrl
+  const showFastlyLink = typeof showFastlyLinkProp === "boolean" ? showFastlyLinkProp : showFastlyGithubLink
+  
   return (
     <div className="pl-36 pt-6">
       {/* Header Section */}
@@ -64,6 +74,19 @@ export default function TopBar() {
               Reference Video: How the Smart Web Crawler Works
             </a>
           </div>
+
+          {/* GitHub Repo Link Button */}
+          {showFastlyLink && (<div className="mb-3">
+            <a
+              href="https://github.com/skyfire-xyz/skyfire-solutions-fastly-compute-news-crawler-demo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm text-white transition hover:bg-gray-700"
+            >
+              Fastly Compute Reference Implementation: GitHub
+            </a>
+          </div>)
+}
 
           {/* Navigation Tabs - Slider Style */}
           <div className="mb-0">
