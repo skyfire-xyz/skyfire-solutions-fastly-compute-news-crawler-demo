@@ -1,5 +1,6 @@
 import { CacheOverride } from "fastly:cache-override";
 import { importJWK, jwtVerify, decodeProtectedHeader } from "jose";
+var validator = require('validator');
 
 // Fetch JWK either from JWKS URL or from cache if useCache is true
 async function getJWKSKeysArray(useCache) {
@@ -14,9 +15,7 @@ async function getJWKSKeysArray(useCache) {
         },
       }),
     });
-  }
-
-  else {
+  } else {
     // Force fetching from skyfire JWKS URL
     jwkResp = await fetch("/.well-known/jwks.json", {
       backend: "jwks_url",
@@ -80,9 +79,11 @@ async function handleRequest(event) {
 
     // if matching key is found from latest JWKS URL response, purge cache
     if (relevantKey) {
-      await fetch("/.well-known/jwks.json", { backend: "jwks_url", method: "PURGE" });
-    }
-    else {
+      await fetch("/.well-known/jwks.json", {
+        backend: "jwks_url",
+        method: "PURGE",
+      });
+    } else {
       // If relevant key still not found, implies token is tampered
       return new Response(
         JSON.stringify({
@@ -98,9 +99,22 @@ async function handleRequest(event) {
 
   // JWT verification logic here
   try {
-    ({ payload } = await jwtVerify(token, await keyP, {
+    ({ payload, protectedHeader } = await jwtVerify(token, await keyP, {
       algorithms: ["ES256"],
     }));
+
+    if (!["kya+JWT", "kya+pay+JWT"].includes(protectedHeader.typ)) {
+      console.log("Invalid typ:", protectedHeader.typ);
+      return new Response(
+        JSON.stringify({
+          error: "Invalid typ - typ should be one of kya+JWT or kya+pay+JWT",
+        }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    }
   } catch (err) {
     const name = err?.code || err?.name || "JOSEError";
     console.log("JWT error:", name, err?.message);
@@ -139,6 +153,65 @@ async function handleRequest(event) {
       status: 401,
       headers: { "content-type": "application/json" },
     });
+  }
+
+  // JWT successfully verified, now verify skyfireEmail
+  const isEmailValid = validator.isEmail(payload.bid.skyfireEmail);
+
+  if (!isEmailValid) {
+    console.log("Invalid email format");
+    return new Response(JSON.stringify({ error: "Invalid email format" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  // Validate env is 'production'
+  if (payload.env !== "production") {
+    console.log("Invalid environment:", payload.env);
+    return new Response(
+      JSON.stringify({ error: "Token is not from production environment" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }
+    );
+  }
+
+  // Validate jti is a UUID
+  if (!validator.isUUID(payload.jti)) {
+    console.log("Invalid jti:", payload.jti);
+    return new Response(
+      JSON.stringify({ error: "Invalid token ID (jti) - not a valid UUID" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }
+    );
+  }
+
+  // Validate sub is a UUID
+  if (!validator.isUUID(payload.sub)) {
+    console.log("Invalid sub:", payload.sub);
+    return new Response(
+      JSON.stringify({ error: "Invalid subject (sub) - not a valid UUID" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }
+    );
+  }
+
+  // Validate aud is a UUID
+  if (!validator.isUUID(payload.aud)) {
+    console.log("Invalid aud:", payload.aud);
+    return new Response(
+      JSON.stringify({ error: "Invalid audience (aud) - not a valid UUID" }),
+      {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      }
+    );
   }
 
   // Token verified, proceed with fetch to protected origin website
