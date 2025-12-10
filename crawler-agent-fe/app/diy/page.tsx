@@ -186,7 +186,7 @@ export default function DIYPage() {
                     <code className="bg-white px-1 rounded">
                       sellerServiceId
                     </code>
-                    : The Datadome Crawler service ID
+                    : Crawler service ID
                   </li>
                 </ul>
               </div>
