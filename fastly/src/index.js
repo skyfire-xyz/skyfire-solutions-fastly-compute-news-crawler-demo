@@ -155,8 +155,8 @@ async function handleRequest(event) {
     });
   }
 
-  // JWT successfully verified, now verify skyfireEmail
-  const isEmailValid = validator.isEmail(payload.bid.skyfireEmail);
+  // JWT successfully verified, now verify email
+  const isEmailValid = validator.isEmail(payload.bid.email);
 
   if (!isEmailValid) {
     console.log("Invalid email format");
