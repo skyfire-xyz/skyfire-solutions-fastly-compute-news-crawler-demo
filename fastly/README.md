@@ -120,11 +120,11 @@ async function handleRequest(event) {
       algorithms: ["ES256"],
     }));
 
-    if (!["kya+JWT", "kya+pay+JWT"].includes(protectedHeader.typ)) {
+    if (!["kya+jwt", "kya+pay+jwt"].includes(protectedHeader.typ)) {
       console.log("Invalid typ:", protectedHeader.typ);
       return new Response(
         JSON.stringify({
-          error: "Invalid typ - typ should be one of kya+JWT or kya+pay+JWT",
+          error: "Invalid typ - typ should be one of kya+jwt or kya+pay+jwt",
         }),
         {
           status: 401,
@@ -172,8 +172,8 @@ async function handleRequest(event) {
     });
   }
 
-  // JWT successfully verified, now verify skyfireEmail
-  const isEmailValid = validator.isEmail(payload.bid.skyfireEmail);
+  // JWT successfully verified, now verify email
+  const isEmailValid = validator.isEmail(payload.hid.email);
 
   if (!isEmailValid) {
     console.log("Invalid email format");
