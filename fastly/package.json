@@ -2,9 +2,9 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@fastly/js-compute": "^3.27.2",
-    "jose": "^5.2.0",
-    "validator": "^13.15.23"
+    "@fastly/js-compute": "3.27.2",
+    "jose": "5.2.0",
+    "validator": "13.15.23"
   },
   "scripts": {
     "build": "fastly compute build",
