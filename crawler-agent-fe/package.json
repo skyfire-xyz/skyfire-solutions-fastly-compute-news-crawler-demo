@@ -63,7 +63,7 @@
     "tailwind-merge": "1.13.2",
     "tailwindcss-animate": "1.0.6",
     "uuid": "11.0.5",
-    "vault": "0.3.0",
+    "vaul": "^1.1.2",
     "zod": "3.23.8"
   },
   "devDependencies": {
