@@ -1,22 +1,19 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useSyncExternalStore } from "react"
+
+function subscribe(onStoreChange: () => void) {
+  window.addEventListener("resize", onStoreChange)
+  return () => window.removeEventListener("resize", onStoreChange)
+}
 
 export function useIsMobile(breakpoint: number = 768) {
-  const [isMobile, setIsMobile] = useState(false)
+  const getSnapshot = useCallback(
+    () => window.innerWidth < breakpoint,
+    [breakpoint]
+  )
 
-  const checkMobile = useCallback(() => {
-    setIsMobile(window.innerWidth < breakpoint)
-  }, [breakpoint])
+  // The viewport is unknown while server-rendering; keep the previous
+  // behaviour of starting out non-mobile.
+  const getServerSnapshot = useCallback(() => false, [])
 
-  useEffect(() => {
-    // Check on mount
-    checkMobile()
-
-    // Add event listener
-    window.addEventListener("resize", checkMobile)
-
-    // Clean up
-    return () => window.removeEventListener("resize", checkMobile)
-  }, [checkMobile])
-
-  return isMobile
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }

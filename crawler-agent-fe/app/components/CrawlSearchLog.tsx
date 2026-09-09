@@ -31,9 +31,6 @@ export default function CrawlSearchLog({ skyfireKyaToken, onFastlyUrlChange }: C
   };
 
   useEffect(() => {
-    setDepth(undefined);
-    setPayment(undefined);
-
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!
     })
@@ -67,7 +64,7 @@ export default function CrawlSearchLog({ skyfireKyaToken, onFastlyUrlChange }: C
   return (
     <div className="space-y-4">
       {/* Website URL Section with Border */}
-      <div className="bg-blue-50 rounded-lg border border-gray-200 p-4 pb-0 shadow-sm">
+      <div className="rounded-lg border border-gray-200 bg-blue-50 p-4 pb-0 shadow-sm">
         <div className="mb-4">
           <h2 className="mb-2 text-sm font-semibold text-gray-900">Website URL</h2>
           <SearchBar
@@ -83,10 +80,10 @@ export default function CrawlSearchLog({ skyfireKyaToken, onFastlyUrlChange }: C
       </div>
 
       {/* Crawled Pages Section */}
-      <div className="bg-blue-50 rounded-lg border border-gray-200 p-3 shadow-sm">
+      <div className="rounded-lg border border-gray-200 bg-blue-50 p-3 shadow-sm">
         <h2 className="mb-3 text-xl font-semibold text-gray-900">Crawled Pages</h2>
         {log.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-300 rounded-lg">
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-12 text-center">
             <p className="text-gray-500">No pages crawled yet. Enter a URL and click Crawl to get started.</p>
           </div>
         ) : (

@@ -93,7 +93,7 @@ export default function CrawlWithTokenPage() {
                                     placeholder="Enter your API key"
                                     value={userApiKey}
                                     onChange={e => setUserApiKey(e.target.value)}
-                                    className="w-full h-12 text-base rounded-md border border-gray-300 bg-white px-3 py-2 focus:outline-none"
+                                    className="h-12 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-base focus:outline-none"
                                 />
                             </div>
                         </div>
@@ -111,7 +111,7 @@ export default function CrawlWithTokenPage() {
                     </div>
 
                     {/* Token Creation Section */}
-                    <div className="bg-blue-50 rounded-lg border border-gray-200 p-4 shadow-sm">
+                    <div className="rounded-lg border border-gray-200 bg-blue-50 p-4 shadow-sm">
                         <h2 className="mb-4 text-xl font-semibold text-gray-900">Step 1: Create KYA Token</h2>
                         
                         <div className="mb-6">
