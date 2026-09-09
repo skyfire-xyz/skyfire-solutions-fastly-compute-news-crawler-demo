@@ -118,7 +118,7 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
     if (apiClient) {
       try {
         const res = await apiClient.get("/v1/users/receivers/list")
-        dispatch(updateSkyfireWallet(res.data))
+        dispatch({ type: "UPDATE_SKYFIRE_RECEIVERS", payload: res.data } as any)
       } catch (e) {
         if (isAxiosError(e)) {
           dispatch(updateError(e))
