@@ -260,7 +260,7 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
           // Handle unauthorized access
           logout()
         }
-        if (error.response.config.url?.includes("start-crawl")) {
+        if (error.response?.config?.url?.includes("start-crawl")) {
           fetchAndCompareClaims()
         }
         return Promise.reject(error)
