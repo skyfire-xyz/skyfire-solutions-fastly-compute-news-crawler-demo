@@ -1,4 +1,4 @@
-import { CheerioCrawler } from "crawlee";
+import { CheerioCrawler } from "@crawlee/cheerio";
 
 let runningCrawlers: Record<string, CheerioCrawler> = {};
 

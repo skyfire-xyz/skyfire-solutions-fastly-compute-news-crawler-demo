@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import axios from "axios"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import {
@@ -72,7 +72,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
     },
   })
 
-  const selectedUrl = form.watch("url")
+  const selectedUrl = useWatch({ control: form.control, name: "url" })
 
   useEffect(() => {
       if (typeof onFastlyUrlChange === "function") {
