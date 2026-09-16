@@ -3,6 +3,7 @@
 import React, {
   ReactNode,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -67,16 +68,151 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
   const [state, dispatch] = useReducer(skyfireReducer, initialState)
   const previousClaimsRef = useRef<PaymentClaim[] | null>(state.claims)
 
-  // Create a memoized Axios instance
+  // Bare client. Interceptors are attached in an effect below so that no
+  // side-effectful registration happens during render.
   const apiClient = useMemo(() => {
     if (!state.localAPIKey) return null
-    const instance = axios.create({
+    return axios.create({
       baseURL:
         process.env.NEXT_PUBLIC_SKYFIRE_API_URL || "https://api.skyfire.xyz",
     })
+  }, [state.localAPIKey])
 
-    // Request interceptor
-    instance.interceptors.request.use(
+  useEffect(() => {
+    const tosAgreed = localStorage.getItem("tosAgreed")
+    if (tosAgreed !== null) {
+      dispatch(updateTOSAgreement(JSON.parse(tosAgreed)))
+    }
+  }, [])
+
+  const logout = useCallback(() => {
+    dispatch(updateSkyfireAPIKey(null))
+  }, [])
+
+  const pushResponse = useCallback((response: AxiosResponse) => {
+    dispatch(addResponse(response))
+  }, [])
+
+  const replaceExistingResponse = useCallback((response: AxiosResponse) => {
+    dispatch(replaceResponse(response))
+  }, [])
+
+  const resetResponses = useCallback(() => {
+    dispatch(clearResponses())
+  }, [])
+
+  const fetchUserBalance = useCallback(async () => {
+    if (apiClient) {
+      try {
+        const res = await apiClient.get("/v1/wallet/balance")
+        dispatch(updateSkyfireWallet(res.data))
+      } catch (e) {
+        if (isAxiosError(e)) {
+          dispatch(updateError(e))
+        }
+      }
+    }
+  }, [apiClient])
+
+  const fetchReceivers = useCallback(async () => {
+    if (apiClient) {
+      try {
+        const res = await apiClient.get("/v1/users/receivers/list")
+        dispatch({ type: "UPDATE_SKYFIRE_RECEIVERS", payload: res.data } satisfies SkyfireAction)
+      } catch (e) {
+        if (isAxiosError(e)) {
+          dispatch(updateError(e))
+        }
+      }
+    }
+  }, [apiClient])
+
+  const fetchUserRules = useCallback(async () => {
+    if (apiClient) {
+      try {
+        const res = await apiClient.get("/v1/users/rules")
+        dispatch(updateSkyfireRules(res.data))
+      } catch (e) {
+        if (isAxiosError(e)) {
+          dispatch(updateError(e))
+        }
+      }
+    }
+  }, [apiClient])
+
+  const fetchUserClaims = useCallback(async () => {
+    if (apiClient) {
+      try {
+        const res = await apiClient.get("/v1/wallet/claims")
+        previousClaimsRef.current = res.data.claims
+        dispatch(updateSkyfireClaims(res.data))
+      } catch (e: unknown) {
+        if (isAxiosError(e)) {
+          dispatch(updateError(e))
+        }
+      }
+    }
+  }, [apiClient])
+
+  const fetchAndCompareClaims = useCallback(async () => {
+    if (!apiClient) return
+
+    try {
+      const response = await apiClient.get("/v1/wallet/claims")
+      const newClaims = response.data.claims
+      const previousClaims = previousClaimsRef.current || []
+
+      if (Array.isArray(newClaims)) {
+        const previousClaimsSet = new Set(
+          previousClaims.map((claim) => claim.id)
+        )
+
+        const spent = newClaims.reduce((acc, claim) => {
+          if (!previousClaimsSet.has(claim.id)) {
+            return acc + Number(claim.value)
+          }
+          return acc
+        }, 0)
+        if (spent > 0) {
+          toast({
+            title: `Spent ${spent}`,
+            duration: 3000,
+          })
+        }
+        previousClaimsRef.current = newClaims
+      } else {
+        console.error("Unexpected data format for claims:", newClaims)
+      }
+    } catch (error) {
+      console.error("Error fetching claims:", error)
+    }
+    await fetchUserBalance()
+  }, [apiClient, fetchUserBalance])
+
+  const getClaimByReferenceID = useCallback(
+    async (referenceId: string | null) => {
+      if (!referenceId || !apiClient) {
+        return false
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      try {
+        await apiClient.get(`v1/wallet/claimByReferenceId/${referenceId}`)
+      } catch (error) {
+        console.error("Error fetching claim:", error)
+      }
+
+      return false
+    },
+    [apiClient]
+  )
+
+  // Attach the interceptors to the current client, ejecting them if the client
+  // is replaced. Declared before the fetch effect below so that the initial
+  // requests already carry the API key header.
+  useEffect(() => {
+    if (!apiClient) return
+
+    const requestId = apiClient.interceptors.request.use(
       (config) => {
         config.headers["skyfire-api-key"] = state.localAPIKey
         if (config.url?.includes("start-crawler")) {
@@ -87,8 +223,7 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
       (error) => Promise.reject(error)
     )
 
-    // Response interceptor
-    instance.interceptors.response.use(
+    const responseId = apiClient.interceptors.response.use(
       async (response) => {
         if (response.config.metadataForAgent?.useWithChat) {
           if (response.config.metadataForAgent?.customizeResponse) {
@@ -125,143 +260,25 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
           // Handle unauthorized access
           logout()
         }
-        if (error.response.config.url?.includes("start-crawl")) {
+        if (error.response?.config?.url?.includes("start-crawl")) {
           fetchAndCompareClaims()
         }
         return Promise.reject(error)
       }
     )
 
-    return instance
-  }, [state.localAPIKey])
-
-  useEffect(() => {
-
-    const tosAgreed = localStorage.getItem("tosAgreed")
-    if (tosAgreed !== null) {
-      dispatch(updateTOSAgreement(JSON.parse(tosAgreed)))
+    return () => {
+      apiClient.interceptors.request.eject(requestId)
+      apiClient.interceptors.response.eject(responseId)
     }
-  }, [])
-
-  const fetchAndCompareClaims = async () => {
-    if (!apiClient) return
-
-    try {
-      const response = await apiClient.get("/v1/wallet/claims")
-      const newClaims = response.data.claims
-      const previousClaims = previousClaimsRef.current || []
-
-      if (Array.isArray(newClaims)) {
-        const previousClaimsSet = new Set(
-          previousClaims.map((claim) => claim.id)
-        )
-
-        const spent = newClaims.reduce((acc, claim) => {
-          if (!previousClaimsSet.has(claim.id)) {
-            return acc + Number(claim.value)
-          }
-          return acc
-        }, 0)
-        if (spent > 0) {
-          toast({
-            title: `Spent ${spent}`,
-            duration: 3000,
-          })
-        }
-        previousClaimsRef.current = newClaims
-      } else {
-        console.error("Unexpected data format for claims:", newClaims)
-      }
-    } catch (error) {
-      console.error("Error fetching claims:", error)
-    }
-    await fetchUserBalance()
-  }
-
-  async function fetchReceivers() {
-    if (apiClient) {
-      try {
-        const res = await apiClient.get("/v1/users/receivers/list")
-        dispatch(updateSkyfireWallet(res.data))
-      } catch (e) {
-        if (isAxiosError(e)) {
-          dispatch(updateError(e))
-        }
-      }
-    }
-  }
-
-  async function fetchUserRules() {
-    if (apiClient) {
-      try {
-        const res = await apiClient.get("/v1/users/rules")
-        dispatch(updateSkyfireRules(res.data))
-      } catch (e) {
-        if (isAxiosError(e)) {
-          dispatch(updateError(e))
-        }
-      }
-    }
-  }
-
-  async function fetchUserBalance() {
-    if (apiClient) {
-      try {
-        const res = await apiClient.get("/v1/wallet/balance")
-        dispatch(updateSkyfireWallet(res.data))
-      } catch (e) {
-        if (isAxiosError(e)) {
-          dispatch(updateError(e))
-        }
-      }
-    }
-  }
-
-  async function fetchUserClaims() {
-    if (apiClient) {
-      try {
-        const res = await apiClient.get("/v1/wallet/claims")
-        previousClaimsRef.current = res.data.claims
-        dispatch(updateSkyfireClaims(res.data))
-      } catch (e: unknown) {
-        if (isAxiosError(e)) {
-          dispatch(updateError(e))
-        }
-      }
-    }
-  }
-
-  async function getClaimByReferenceID(referenceId: string | null) {
-    if (!referenceId || !apiClient) {
-      return false
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    try {
-      const res = await apiClient.get(
-        `v1/wallet/claimByReferenceId/${referenceId}`
-      )
-    } catch (error) {
-      console.error("Error fetching claim:", error)
-    }
-
-    return false
-  }
-
-  function logout() {
-    dispatch(updateSkyfireAPIKey(null))
-  }
-
-  function pushResponse(response: AxiosResponse) {
-    dispatch(addResponse(response))
-  }
-
-  function replaceExistingResponse(response: AxiosResponse) {
-    dispatch(replaceResponse(response))
-  }
-
-  function resetResponses() {
-    dispatch(clearResponses())
-  }
+  }, [
+    apiClient,
+    state.localAPIKey,
+    pushResponse,
+    replaceExistingResponse,
+    logout,
+    fetchAndCompareClaims,
+  ])
 
   useEffect(() => {
     if (apiClient) {
@@ -270,7 +287,13 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
       fetchUserRules()
       fetchReceivers()
     }
-  }, [apiClient])
+  }, [
+    apiClient,
+    fetchUserBalance,
+    fetchUserClaims,
+    fetchUserRules,
+    fetchReceivers,
+  ])
 
   return (
     <SkyfireContext.Provider

@@ -1,4 +1,4 @@
-import { CheerioCrawler, RequestQueue } from "crawlee";
+import { CheerioCrawler, RequestQueue } from "@crawlee/cheerio";
 import crypto from 'crypto'
 import {
   DEFAULT_DEPTH,

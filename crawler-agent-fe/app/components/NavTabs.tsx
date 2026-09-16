@@ -24,7 +24,7 @@ const NavTabs: React.FC = () => {
   const { isCrawling } = useCrawling()
 
   return (
-    <div className="inline-flex rounded-lg bg-blue-10 p-1 shadow-sm border border-gray-200">
+    <div className="bg-blue-10 inline-flex rounded-lg border border-gray-200 p-1 shadow-sm">
       {tabs.map((tab) => {
         const isActive = pathname === tab.route
         return (

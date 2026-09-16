@@ -31,7 +31,7 @@ export default function CrawlLog({
 
   return (
     <div className="size-full">
-      <div ref={logRef} className="flex h-full max-h-[500px] flex-col overflow-y-auto rounded-lg border border-gray-300 bg-blue-10 p-4">
+      <div ref={logRef} className="bg-blue-10 flex h-full max-h-[500px] flex-col overflow-y-auto rounded-lg border border-gray-300 p-4">
         <ul className="flex-1">
           {[...log].reverse().map((entry, index) => {
             return (

@@ -1,4 +1,4 @@
-import { tool } from "ai"
+import { type Tool } from "ai"
 import { z } from "zod"
 
 export class BaseTool {
@@ -23,11 +23,13 @@ export class BaseTool {
     description: string,
     parameters: z.ZodType<any, any>,
     execute: (args: any) => Promise<any>
-  ) {
-    return tool({
-      description,
-      parameters,
-      execute,
-    })
+  ): Tool<any, any> {
+    // The SDK's `tool()` helper is an identity function that exists only to
+    // infer a tool's input type from its schema. BaseTool intentionally erases
+    // that type, so the shape is annotated directly instead.
+    return { description, inputSchema: parameters, execute } as unknown as Tool<
+      any,
+      any
+    >
   }
 }

@@ -23,13 +23,13 @@ const CopyButton = ({ text }: { text: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="absolute top-3 right-3 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition flex items-center gap-1"
+      className="absolute right-3 top-3 flex items-center gap-1 rounded bg-gray-700 px-3 py-1 text-xs text-white transition hover:bg-gray-600"
       title="Copy to clipboard"
     >
       {copied ? (
         <>
           <svg
-            className="w-4 h-4"
+            className="size-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -46,7 +46,7 @@ const CopyButton = ({ text }: { text: string }) => {
       ) : (
         <>
           <svg
-            className="w-4 h-4"
+            className="size-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -86,22 +86,22 @@ export default function DIYPage() {
       <TopBar />
       <PageLayout>
         <div className="bg-blue-10 rounded-lg border border-gray-200 p-4 shadow-sm">
-          <div className="max-w-5xl mx-auto w-full">
-            <h1 className="text-3xl font-semibold mb-8 text-gray-900">
+          <div className="mx-auto w-full max-w-5xl">
+            <h1 className="mb-8 text-3xl font-semibold text-gray-900">
               Do It Yourself (curl instructions)
             </h1>
 
             {/* Step 1 */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">
+              <h2 className="mb-3 text-xl font-semibold text-gray-900">
                 Step 1: Try accessing protected website without token
               </h2>
-              <p className="text-gray-600 mb-4">
+              <p className="mb-4 text-gray-600">
                 This demonstrates that the protected website blocks requests
                 without proper authentication. You&apos;ll receive a 403
                 error response - Missing KYA token `skyfire-pay-id`. Please create an account at https://app.skyfire.xyz and create a KYA token - https://docs.skyfire.xyz/reference/create-token.
               </p>
-              <div className="bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm overflow-x-auto relative">
+              <div className="relative overflow-x-auto rounded-lg bg-gray-900 p-6 font-mono text-sm text-green-400">
                 <CopyButton text={step1Curl} />
                 <pre className="whitespace-pre-wrap break-all pr-20">
                   {step1Curl}
@@ -111,18 +111,18 @@ export default function DIYPage() {
 
             {/* Step 2 */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">
+              <h2 className="mb-3 text-xl font-semibold text-gray-900">
                 Step 2: Create Skyfire account and get Buyer Agent API key
               </h2>
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-md">
-                <ol className="list-decimal list-inside space-y-3 text-gray-700">
+              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-md">
+                <ol className="list-inside list-decimal space-y-3 text-gray-700">
                   <li>
                     Go to{" "}
                     <a
                       href="https://app.skyfire.xyz"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                      className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       app.skyfire.xyz
                     </a>{" "}
@@ -142,7 +142,7 @@ export default function DIYPage() {
                       href="https://docs.skyfire.xyz/docs/introduction"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                      className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       Skyfire Platform Guide
                     </a>
@@ -153,50 +153,50 @@ export default function DIYPage() {
 
             {/* Step 3 */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">
+              <h2 className="mb-3 text-xl font-semibold text-gray-900">
                 Step 3: Create KYA token via Skyfire API
               </h2>
-              <p className="text-gray-600 mb-4">
+              <p className="mb-4 text-gray-600">
                 Call the Skyfire API directly to create a KYA (Know Your Agent)
                 token. This token will be used to authenticate your requests and grant
                 access to the protected website. Replace{" "}
-                <code className="bg-gray-200 px-1 rounded">YOUR_API_KEY</code>{" "}
+                <code className="rounded bg-gray-200 px-1">YOUR_API_KEY</code>{" "}
                 with your Buyer Agent API key from Step 2.
               </p>
-              <div className="bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm overflow-x-auto relative">
+              <div className="relative overflow-x-auto rounded-lg bg-gray-900 p-6 font-mono text-sm text-green-400">
                 <CopyButton text={step3Curl} />
                 <pre className="whitespace-pre-wrap break-all pr-20">
                   {step3Curl}
                 </pre>
               </div>
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 mb-2">
+              <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <p className="mb-2 text-sm text-blue-800">
                   <strong>Parameters explained:</strong>
                 </p>
-                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <ul className="list-inside list-disc space-y-1 text-sm text-blue-800">
                   <li>
-                    <code className="bg-white px-1 rounded">type</code>: Set to
+                    <code className="rounded bg-white px-1">type</code>: Set to
                     &quot;kya&quot; for Know Your Agent token
                   </li>
                   <li>
-                    <code className="bg-white px-1 rounded">buyerTag</code>:
+                    <code className="rounded bg-white px-1">buyerTag</code>:
                     Optional identifier for your organization
                   </li>
                   <li>
-                    <code className="bg-white px-1 rounded">
+                    <code className="rounded bg-white px-1">
                       sellerServiceId
                     </code>
                     : Crawler service ID
                   </li>
                 </ul>
               </div>
-              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                 <p className="text-sm text-yellow-800">
                   <strong>Expected Response:</strong> You&apos;ll receive a JSON
                   response containing a token field. Copy the entire JWT token
                   value for use in Step 4.
                 </p>
-                <code className="block mt-2 text-sm text-gray-800 bg-white p-2 rounded border">
+                <code className="mt-2 block rounded border bg-white p-2 text-sm text-gray-800">
                   {`{ "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6IjAiLCJ0eXAiOiJreWErSldUIn0..." }`}
                 </code>
               </div>
@@ -204,38 +204,38 @@ export default function DIYPage() {
 
             {/* Step 4 */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">
+              <h2 className="mb-3 text-xl font-semibold text-gray-900">
                 Step 4: Access protected website with token
               </h2>
-              <p className="text-gray-600 mb-4">
+              <p className="mb-4 text-gray-600">
                 Now use the KYA token from Step 3 to access the protected website.
                 Replace{" "}
-                <code className="bg-gray-200 px-1 rounded">KYA_TOKEN</code> with
+                <code className="rounded bg-gray-200 px-1">KYA_TOKEN</code> with
                 the actual KYA token you received. The request will successfully
                 access the protected site using the{" "}
-                <code className="bg-gray-200 px-1 rounded">skyfire-pay-id</code>{" "}
+                <code className="rounded bg-gray-200 px-1">skyfire-pay-id</code>{" "}
                 header.
               </p>
-              <div className="bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm overflow-x-auto relative">
+              <div className="relative overflow-x-auto rounded-lg bg-gray-900 p-6 font-mono text-sm text-green-400">
                 <CopyButton text={step4Curl} />
                 <pre className="whitespace-pre-wrap break-all pr-20">
                   {step4Curl}
                 </pre>
               </div>
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <p className="text-sm text-blue-800">
                   <strong>Important:</strong> The{" "}
-                  <code className="bg-white px-1 rounded">skyfire-pay-id</code>{" "}
+                  <code className="rounded bg-white px-1">skyfire-pay-id</code>{" "}
                   header contains your KYA token and authenticates your request
                   to the protected service. This header is automatically
                   validated by Fastly Compute to verify your
                   agent&apos;s identity and authorization.
                 </p>
               </div>
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
                 <p className="text-sm text-green-800">
                   <strong>Success!</strong> With a valid KYA token in the{" "}
-                  <code className="bg-white px-1 rounded">skyfire-pay-id</code>{" "}
+                  <code className="rounded bg-white px-1">skyfire-pay-id</code>{" "}
                   header, you can now access the protected website and retrieve
                   the data. You should receive the HTML content of the page
                   instead of a 403 error.
@@ -244,28 +244,28 @@ export default function DIYPage() {
             </div>
 
             {/* Summary */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mt-8">
-              <h3 className="text-xl font-semibold mb-3 text-gray-900">
+            <div className="mt-8 rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+              <h3 className="mb-3 text-xl font-semibold text-gray-900">
                 🎉 You&apos;ve completed the DIY tutorial!
               </h3>
-              <p className="text-gray-700 mb-4">
+              <p className="mb-4 text-gray-700">
                 You&apos;ve successfully learned how to:
               </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
+              <ul className="list-inside list-disc space-y-2 text-gray-700">
                 <li>Create a Skyfire Buyer Agent API key</li>
                 <li>Generate KYA tokens for authentication</li>
                 <li>
                   Use tokens to access protected websites programmatically
                 </li>
               </ul>
-              <div className="mt-4 pt-4 border-t border-blue-200">
+              <div className="mt-4 border-t border-blue-200 pt-4">
                 <p className="text-sm text-gray-600">
                   For more advanced usage and integration options, visit the{" "}
                   <a
                     href="https://docs.skyfire.xyz"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                    className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
                   >
                     Skyfire Documentation
                   </a>

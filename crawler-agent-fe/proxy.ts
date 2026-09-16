@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { getClientConfig } from "@/lib/client-config"
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Get domain
   const hostname = request.headers.get("host") || ""
   const config = getClientConfig(hostname)
