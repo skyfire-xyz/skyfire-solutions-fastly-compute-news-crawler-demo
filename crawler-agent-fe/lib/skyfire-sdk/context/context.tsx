@@ -21,6 +21,7 @@ import {
   updateError,
   updateSkyfireAPIKey,
   updateSkyfireClaims,
+  updateSkyfireReceivers,
   updateSkyfireRules,
   updateSkyfireWallet,
   updateTOSAgreement,
@@ -118,7 +119,7 @@ export const SkyfireProvider: React.FC<{ children: ReactNode }> = ({
     if (apiClient) {
       try {
         const res = await apiClient.get("/v1/users/receivers/list")
-        dispatch({ type: "UPDATE_SKYFIRE_RECEIVERS", payload: res.data } satisfies SkyfireAction)
+        dispatch(updateSkyfireReceivers(res.data))
       } catch (e) {
         if (isAxiosError(e)) {
           dispatch(updateError(e))
