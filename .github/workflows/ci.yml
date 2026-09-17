@@ -1,5 +1,9 @@
 # Gates pull requests so dependency updates cannot land unverified.
 #
+# Actions are pinned to commit SHAs rather than tags: a tag can be moved to
+# point at different code, a SHA cannot. Dependabot keeps them current and
+# rewrites the trailing version comment when it does.
+#
 # Every job runs on every pull request on purpose: a job skipped by a path
 # filter never reports a status, and a required check that never reports blocks
 # the pull request forever.
@@ -24,8 +28,8 @@ jobs:
       run:
         working-directory: crawler-agent-core
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm
@@ -40,8 +44,8 @@ jobs:
       run:
         working-directory: crawler-agent-fe
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: yarn
@@ -57,8 +61,8 @@ jobs:
       run:
         working-directory: fastly
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
           cache: npm

@@ -1,0 +1,63 @@
+# Two things here reduce risk rather than noise:
+#   cooldown - do not adopt a release the day it ships, which is when a
+#              compromised or yanked publish is most likely to still be live.
+#   groups   - one pull request per batch instead of one per package, so the
+#              held majors a human actually reviews are far fewer.
+#
+# Security updates bypass both and open immediately, which is what you want for
+# a known vulnerability.
+#
+# The github-actions entry is what keeps the SHA pins in .github/workflows from
+# rotting; Dependabot rewrites both the SHA and the trailing version comment.
+version: 2
+
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/crawler-agent-core'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      core-dev:
+        dependency-type: 'development'
+        update-types: ['patch', 'minor']
+      core-prod:
+        dependency-type: 'production'
+        update-types: ['patch']
+
+  - package-ecosystem: 'npm'
+    directory: '/crawler-agent-fe'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      fe-dev:
+        dependency-type: 'development'
+        update-types: ['patch', 'minor']
+      fe-prod:
+        dependency-type: 'production'
+        update-types: ['patch']
+
+  - package-ecosystem: 'npm'
+    directory: '/fastly'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: ['patch', 'minor']
