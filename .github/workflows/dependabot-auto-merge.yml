@@ -1,14 +1,9 @@
-# Approves and queues patch/minor Dependabot updates; majors are labelled and
-# left for review.
+# Approves and queues patch and minor Dependabot updates for this repo; majors
+# are labelled needs-manual-review and left for a human.
 #
-# This duplicates skyfire-xyz/github-actions/.github/workflows/
-# dependabot-auto-merge.yml rather than calling it. GitHub only shares reusable
-# workflows from a private repository with other private repositories, and this
-# repository is public, so the call can never resolve. Keep the two in sync by
-# hand until the shared copy lives somewhere public.
-#
-# Needs "Allow auto-merge" on this repo and the CI jobs marked as required
-# checks, otherwise there is nothing for auto-merge to wait on.
+# Needs "Allow auto-merge" enabled on the repo and the CI jobs marked as
+# required checks. Auto-merge only waits on checks a ruleset requires, so with
+# nothing required there is nothing for it to wait on.
 name: Dependabot Auto-merge
 
 on:
