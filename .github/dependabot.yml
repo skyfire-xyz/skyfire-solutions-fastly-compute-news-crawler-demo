@@ -41,11 +41,21 @@ updates:
     cooldown:
       default-days: 3
       semver-major-days: 7
+    groups:
+      fastly-dev:
+        dependency-type: 'development'
+        update-types: ['patch', 'minor']
+      fastly-prod:
+        dependency-type: 'production'
+        update-types: ['patch']
 
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
     groups:
       actions:
         patterns: ['*']
