@@ -1,9 +1,5 @@
 # Gates pull requests so dependency updates cannot land unverified.
 #
-# Actions are pinned to commit SHAs rather than tags: a tag can be moved to
-# point at different code, a SHA cannot. Dependabot keeps them current and
-# rewrites the trailing version comment when it does.
-#
 # Every job runs on every pull request on purpose: a job skipped by a path
 # filter never reports a status, and a required check that never reports blocks
 # the pull request forever.
