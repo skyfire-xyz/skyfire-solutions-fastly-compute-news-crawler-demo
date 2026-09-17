@@ -53,9 +53,6 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    cooldown:
-      default-days: 3
-      semver-major-days: 7
     groups:
       actions:
         patterns: ['*']
