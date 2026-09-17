@@ -1,6 +1,14 @@
-# Logic lives in skyfire-xyz/github-actions so every repo shares one copy.
-# Requires "Allow auto-merge" on this repo and the CI checks above marked
-# required, otherwise there is nothing for auto-merge to wait on.
+# Approves and queues patch/minor Dependabot updates; majors are labelled and
+# left for review.
+#
+# This duplicates skyfire-xyz/github-actions/.github/workflows/
+# dependabot-auto-merge.yml rather than calling it. GitHub only shares reusable
+# workflows from a private repository with other private repositories, and this
+# repository is public, so the call can never resolve. Keep the two in sync by
+# hand until the shared copy lives somewhere public.
+#
+# Needs "Allow auto-merge" on this repo and the CI jobs marked as required
+# checks, otherwise there is nothing for auto-merge to wait on.
 name: Dependabot Auto-merge
 
 on:
@@ -18,7 +26,41 @@ permissions:
 
 jobs:
   auto-merge:
-    uses: skyfire-xyz/github-actions/.github/workflows/dependabot-auto-merge.yml@main
-    with:
-      merge-method: merge
-      allow-minor: true
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide eligibility
+        id: gate
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEP_TYPE: ${{ steps.meta.outputs.dependency-type }}
+        run: |
+          eligible=false
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch) eligible=true ;;
+            version-update:semver-minor) eligible=true ;;
+          esac
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          echo "update=$UPDATE_TYPE dep=$DEP_TYPE eligible=$eligible"
+
+      - name: Approve and enable auto-merge
+        if: steps.gate.outputs.eligible == 'true'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review --approve "$PR_URL"
+          gh pr merge --auto --merge "$PR_URL"
+
+      - name: Label held pull requests
+        if: steps.gate.outputs.eligible != 'true'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr edit "$PR_URL" --add-label "needs-manual-review" || true
