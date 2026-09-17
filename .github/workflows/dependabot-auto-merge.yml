@@ -1,0 +1,24 @@
+# Logic lives in skyfire-xyz/github-actions so every repo shares one copy.
+# Requires "Allow auto-merge" on this repo and the CI checks above marked
+# required, otherwise there is nothing for auto-merge to wait on.
+name: Dependabot Auto-merge
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    uses: skyfire-xyz/github-actions/.github/workflows/dependabot-auto-merge.yml@main
+    with:
+      merge-method: merge
+      allow-minor: true

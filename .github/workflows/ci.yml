@@ -1,0 +1,68 @@
+# Gates pull requests so dependency updates cannot land unverified.
+#
+# Every job runs on every pull request on purpose: a job skipped by a path
+# filter never reports a status, and a required check that never reports blocks
+# the pull request forever.
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crawler-agent-core
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crawler-agent-core/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crawler-agent-fe
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: crawler-agent-fe/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
+      - run: yarn lint
+
+  fastly:
+    name: fastly
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fastly
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: fastly/package-lock.json
+      # `fastly compute build` needs the Fastly CLI, so this gates on the
+      # lockfile resolving cleanly, which is what dependency updates change.
+      - run: npm ci
