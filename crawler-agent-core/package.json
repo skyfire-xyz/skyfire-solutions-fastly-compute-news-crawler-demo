@@ -15,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@crawlee/cheerio": "3.18.1",
+    "@crawlee/cheerio": "3.18.2",
     "convict": "6.2.5",
     "cors": "2.8.6",
     "dotenv": "16.4.5",
