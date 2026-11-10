@@ -30,4 +30,4 @@ fastly compute build
 fastly compute deploy
 ```
 
-The local server doesn't support Fastly's HTTP cache API, which the cached JWKS fetch uses, so requests that carry a token return 500 locally. Test token verification against a deployed service.
+The local server doesn't support Fastly's HTTP cache API, which the cached JWKS fetch uses, so requests that carry a token return 503 locally. Test token verification against a deployed service.

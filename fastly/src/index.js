@@ -5,33 +5,46 @@ import validator from "validator";
 
 const JWKS_SURROGATE_KEY = "skyfire-jwks";
 
-function jwksUnavailable(reason) {
+const JWKS_UNAVAILABLE = "JWKS_UNAVAILABLE";
+
+// badBody marks a 200 response that couldn't be used, the only kind the cache can hold
+function jwksUnavailable(reason, badBody = false) {
   const error = new Error(`JWKS unavailable: ${reason}`);
-  error.status = 503;
+  error.code = JWKS_UNAVAILABLE;
+  error.badBody = badBody;
 
   return error;
 }
 
+function purgeCachedJWKS() {
+  try {
+    purgeSurrogateKey(JWKS_SURROGATE_KEY);
+  } catch (error) {
+    console.error("Failed to purge cached JWKS:", error);
+  }
+}
+
 // Fetch JWK either from JWKS URL or from cache if useCache is true
 async function getJWKSKeysArray(useCache) {
-  let jwkResp;
-  if (useCache) {
-    jwkResp = await fetch("/.well-known/jwks.json", {
-      backend: "jwks_url",
-      cacheOverride: new CacheOverride("override", {
+  const cacheOverride = useCache
+    ? new CacheOverride("override", {
         afterSend(res) {
           res.ttl = 1000;
           res.surrogateKeys = [JWKS_SURROGATE_KEY];
+
           return { cache: res.ok };
         },
-      }),
-    });
-  } else {
-    // Force fetching from skyfire JWKS URL
+      })
+    : new CacheOverride("pass");
+
+  let jwkResp;
+  try {
     jwkResp = await fetch("/.well-known/jwks.json", {
       backend: "jwks_url",
-      cacheOverride: new CacheOverride("pass"), // skip default cache
+      cacheOverride,
     });
+  } catch (error) {
+    throw jwksUnavailable(`request failed: ${error.message}`);
   }
 
   if (!jwkResp.ok) {
@@ -42,11 +55,11 @@ async function getJWKSKeysArray(useCache) {
   try {
     jwks = await jwkResp.json();
   } catch {
-    throw jwksUnavailable("response is not JSON");
+    throw jwksUnavailable("response is not JSON", true);
   }
 
-  if (!Array.isArray(jwks?.keys)) {
-    throw jwksUnavailable("response has no keys");
+  if (!Array.isArray(jwks?.keys) || jwks.keys.length === 0) {
+    throw jwksUnavailable("response has no keys", true);
   }
 
   return jwks.keys;
@@ -68,7 +81,7 @@ function invalidTokenResponse() {
 
 // Select key with matching <kid> from multiple JWK keys
 function getKeyForKid(keys, kid) {
-  return keys.find((key) => key.kid === kid) ?? null;
+  return keys.find((key) => key.kid === kid);
 }
 
 async function handleRequest(event) {
@@ -90,8 +103,8 @@ async function handleRequest(event) {
   let decodedHeader;
   try {
     decodedHeader = decodeProtectedHeader(token);
-  } catch (e) {
-    console.error("Failed to decode JWT header:", e);
+  } catch (error) {
+    console.error("Failed to decode JWT header:", error);
 
     return invalidTokenResponse();
   }
@@ -102,8 +115,20 @@ async function handleRequest(event) {
     return invalidTokenResponse();
   }
 
-  // Pick a relevant key from a list of JWK keys
-  const cachedKeys = await getJWKSKeysArray(true);
+  // Pick a relevant key from a list of JWK keys. A cached 200 with a bad body
+  // is evicted so the fresh fetch below can replace it.
+  let cachedKeys = [];
+  try {
+    cachedKeys = await getJWKSKeysArray(true);
+  } catch (error) {
+    if (!error.badBody) {
+      throw error;
+    }
+
+    console.error("Cached JWKS unusable, refetching:", error.message);
+    purgeCachedJWKS();
+  }
+
   let relevantKey = getKeyForKid(cachedKeys, decodedHeader.kid);
 
   // If relevant key not found yet, retrieve fresh response from JWKS URL by passing useCache false in getJWKSKeysArray method
@@ -116,12 +141,7 @@ async function handleRequest(event) {
       return invalidTokenResponse();
     }
 
-    // Matching key found in the latest JWKS response, so drop the stale cached copy
-    try {
-      purgeSurrogateKey(JWKS_SURROGATE_KEY);
-    } catch (error) {
-      console.error("Failed to purge cached JWKS:", error);
-    }
+    purgeCachedJWKS();
   }
 
   const keyP = importJWK(relevantKey, "ES256");
@@ -268,14 +288,17 @@ async function respond(event) {
     return await handleRequest(event);
   } catch (error) {
     console.error("Request failed:", error);
-    const status = error.status ?? 500;
-    const message =
-      status === 503 ? "Token verification unavailable" : "Internal error";
+    const unavailable = error?.code === JWKS_UNAVAILABLE;
 
-    return new Response(JSON.stringify({ error: message }), {
-      status,
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: unavailable ? "Token verification unavailable" : "Internal error",
+      }),
+      {
+        status: unavailable ? 503 : 500,
+        headers: { "content-type": "application/json" },
+      }
+    );
   }
 }
 
