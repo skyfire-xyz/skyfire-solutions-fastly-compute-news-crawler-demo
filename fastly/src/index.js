@@ -32,7 +32,7 @@ async function getJWKSKeysArray(useCache) {
           res.ttl = 1000;
           res.surrogateKeys = [JWKS_SURROGATE_KEY];
 
-          return { cache: res.ok };
+          return res.status === 304 ? {} : { cache: res.ok };
         },
       })
     : new CacheOverride("pass");
