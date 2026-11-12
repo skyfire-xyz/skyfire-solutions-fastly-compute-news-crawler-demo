@@ -63,6 +63,26 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: fastly/package-lock.json
-      # `fastly compute build` needs the Fastly CLI, so this gates on the
-      # lockfile resolving cleanly, which is what dependency updates change.
       - run: npm ci
+      - run: npx --yes @fastly/cli@17.0.0 compute build --non-interactive
+      # The local server can't verify tokens (no HTTP cache API), so this only
+      # proves the worker boots and answers a request without one.
+      - name: Smoke test
+        run: |
+          npx --yes @fastly/cli@17.0.0 compute serve --skip-build --addr 127.0.0.1:7676 > serve.log 2>&1 &
+          server=$!
+          for attempt in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:7676/ && break
+            if ! kill -0 "$server" 2>/dev/null; then
+              echo "Local server exited before answering"
+              cat serve.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7676/)
+          if [ "$status" != "403" ]; then
+            echo "Expected 403 for a request without a token, got $status"
+            exit 1
+          fi
