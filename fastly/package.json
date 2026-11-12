@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "@fastly/js-compute": "4.0.1",
-    "jose": "5.2.0",
+    "jose": "6.2.15",
     "validator": "13.15.35"
   },
   "scripts": {
